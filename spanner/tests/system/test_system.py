@@ -220,6 +220,12 @@ class _TestData(object):
             self.assertEqual(value.microsecond * 1000, nano_value.nanosecond)
 
     def _check_row_data(self, row_data, expected=None):
+        try:
+            row_data = sorted(row_data)
+            expected = sorted(expected)
+        except TypeError:
+            pass
+
         if expected is None:
             expected = self.ROW_DATA
 
