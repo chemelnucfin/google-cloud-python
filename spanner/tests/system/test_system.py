@@ -815,7 +815,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         self._check_row_data(after, all_data_rows)
 
     def test_read_w_manual_consume(self):
-        ROW_COUNT = 4000
+        ROW_COUNT = 3000
         session, committed = self._set_up_table(ROW_COUNT)
 
         snapshot = session.snapshot(read_timestamp=committed)
@@ -888,7 +888,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         self._check_row_data(rows, expected)
 
     def test_read_w_limit(self):
-        ROW_COUNT = 4000
+        ROW_COUNT = 3000
         LIMIT = 100
         session, committed = self._set_up_table(ROW_COUNT)
 
@@ -901,7 +901,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         self._check_row_data(rows, expected)
 
     def test_read_w_ranges(self):
-        ROW_COUNT = 4000
+        ROW_COUNT = 3000
         START = 1000
         END = 2000
         session, committed = self._set_up_table(ROW_COUNT)
@@ -936,8 +936,46 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         expected = all_data_rows[START+1:END+1]
         self._check_row_data(rows, expected)
 
+    def test_read_with_range_keys_index(self):
+        row_count = 10
+        columns = self.COLUMNS[1], self.COLUMNS[2]
+        session, committed = self._set_up_table(row_count)
+        self.to_delete.append(session)
+        expected = [[row[1], row[2]] for row in self._row_data(row_count)]
+        start = 3
+        end = 7
+        start_index = [expected[start][0], expected[start][1]]
+        end_index = [expected[end][0], expected[end][1]]
+        closed_closed = KeyRange(start_closed=start_index,
+                                 end_closed=end_index)
+        closed_open = KeyRange(start_closed=start_index,
+                                 end_open=end_index)
+        open_open = KeyRange(start_open=start_index,
+                                 end_open=end_index)
+        open_closed = KeyRange(start_open=start_index,
+                                 end_closed=end_index)
+        range_type = ((closed_closed,),
+                      (closed_open,),
+                      (open_closed,),
+                      (open_open,)
+        )
+        indices = ((start, end+1),
+                   (start, end),
+                   (start+1, end+1),
+                   (start+1, end)
+        )
+        for index in range(len(range_type)):
+            keyset = KeySet(ranges=range_type[index])
+            rows = list(session.read(self.TABLE,
+                                     columns,
+                                     keyset,
+                                     index='name')
+            )
+            self.assertEqual(rows,
+                             expected[indices[index][0]:indices[index][1]])
+
     def test_execute_sql_w_manual_consume(self):
-        ROW_COUNT = 4000
+        ROW_COUNT = 3000
         session, committed = self._set_up_table(ROW_COUNT)
 
         snapshot = session.snapshot(read_timestamp=committed)
