@@ -219,26 +219,24 @@ class _TestData(object):
         else:
             self.assertEqual(value.microsecond * 1000, nano_value.nanosecond)
 
+    def _check_table_data(self, table_data, expected):
+        self.assertEqual(len(table_data), len(expected))        
+        table_data = sorted(row_data)
+        expected = sorted(expected)
+        for row, expected in zip(table_data, expected):
+            self._check_row_data(row_data, expected)
+            
     def _check_row_data(self, row_data, expected=None):
-        try:
-            row_data = sorted(row_data)
-            expected = sorted(expected)
-        except TypeError:
-            pass
-
         if expected is None:
             expected = self.ROW_DATA
 
-        self.assertEqual(len(row_data), len(expected))
-        for found, expected in zip(row_data, expected):
-            self.assertEqual(len(found), len(expected))
-            for found_cell, expected_cell in zip(found, expected):
-                if isinstance(found_cell, TimestampWithNanoseconds):
-                    self._assert_timestamp(expected_cell, found_cell)
-                elif isinstance(found_cell, float) and math.isnan(found_cell):
-                    self.assertTrue(math.isnan(expected_cell))
-                else:
-                    self.assertEqual(found_cell, expected_cell)
+        for found_cell, expected_cell in zip(row_data, expected):
+            if isinstance(found_cell, TimestampWithNanoseconds):
+                self._assert_timestamp(expected_cell, found_cell)
+            elif isinstance(found_cell, float) and math.isnan(found_cell):
+                self.assertTrue(math.isnan(expected_cell))
+            else:
+                self.assertEqual(found_cell, expected_cell)
 
 
 class TestDatabaseAPI(unittest.TestCase, _TestData):
