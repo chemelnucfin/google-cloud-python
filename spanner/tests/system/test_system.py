@@ -900,6 +900,72 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         expected = all_data_rows[:LIMIT]
         self._check_row_data(rows, expected)
 
+    def test_read_with_partial_keys(self):
+        ROW_COUNT = 3000
+        START = 1000
+        END = 2000
+        session, committed = self._set_up_table(ROW_COUNT)
+        snapshot = session.snapshot(read_timestamp=committed, multi_use=True)
+        all_data_rows = list(self._row_data(ROW_COUNT))
+
+        import pdb
+        pdb.set_trace()
+        closed_closed = KeyRange(start_closed=[START], end_closed=[])
+        keyset = KeySet(ranges=(closed_closed,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[START:]
+        self._check_row_data(rows, expected)
+
+        # closed_open = KeyRange(start_closed=[START], end_open=[])
+        # keyset = KeySet(ranges=(closed_open,))
+        # rows = list(snapshot.read(
+        #     self.TABLE, self.COLUMNS, keyset))
+        # expected = all_data_rows[START:]
+        # self._check_row_data(rows, expected)
+
+        open_open = KeyRange(start_open=[START], end_open=[])
+        keyset = KeySet(ranges=(open_open,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[START+1:]
+        self._check_row_data(rows, expected)
+
+        open_closed = KeyRange(start_open=[START], end_closed=[])
+        keyset = KeySet(ranges=(open_closed,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[START+1:]
+        self._check_row_data(rows, expected)
+
+        closed_closed = KeyRange(start_closed=[], end_closed=[END])
+        keyset = KeySet(ranges=(closed_closed,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[:END+1]
+        self._check_row_data(rows, expected)
+
+        closed_open = KeyRange(start_closed=[], end_open=[END])
+        keyset = KeySet(ranges=(closed_open,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[:END]
+        self._check_row_data(rows, expected)
+
+        open_open = KeyRange(start_open=[], end_open=[END])
+        keyset = KeySet(ranges=(open_open,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[:END]
+        self._check_row_data(rows, expected)
+
+        open_closed = KeyRange(start_open=[], end_closed=[END])
+        keyset = KeySet(ranges=(open_closed,))
+        rows = list(snapshot.read(
+            self.TABLE, self.COLUMNS, keyset))
+        expected = all_data_rows[:END+1]
+        self._check_row_data(rows, expected)
+
     def test_read_w_ranges(self):
         ROW_COUNT = 3000
         START = 1000
@@ -936,7 +1002,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         expected = all_data_rows[START+1:END+1]
         self._check_row_data(rows, expected)
 
-    def test_read_with_range_keys_index(self):
+    def test_read_with_partial_keys_index(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         session, committed = self._set_up_table(row_count)
@@ -946,25 +1012,38 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         end = 7
         start_index = [expected[start][0], expected[start][1]]
         end_index = [expected[end][0], expected[end][1]]
-        closed_closed = KeyRange(start_closed=start_index,
-                                 end_closed=end_index)
-        closed_open = KeyRange(start_closed=start_index,
-                                 end_open=end_index)
-        open_open = KeyRange(start_open=start_index,
-                                 end_open=end_index)
-        open_closed = KeyRange(start_open=start_index,
-                                 end_closed=end_index)
+        import pdb
+        pdb.set_trace()
+        closed_closed = KeyRange(start_closed=start_index, end_closed=[])
+        closed_open = KeyRange(start_closed=[], end_open=end_index)
+        open_open = KeyRange(start_open=start_index, end_closed=[])
+        open_closed = KeyRange(start_closed=[], end_closed=end_index)
+        closed_closed2 = KeyRange(start_closed=start_index, end_open=[])
+        closed_open2 = KeyRange(start_open=[], end_open=end_index)        
+        open_open2 = KeyRange(start_open=start_index, end_open=[])
+        open_closed2 = KeyRange(start_open=[], end_closed=end_index)
+
         range_type = ((closed_closed,),
-                      (closed_open,),
                       (open_closed,),
-                      (open_open,)
+                      (closed_open,),
+                      (open_open,),
+                      (closed_closed2,),
+                      (open_closed2,),
+                      (closed_open2,),
+                      (open_open2,),
         )
-        indices = ((start, end+1),
-                   (start, end),
-                   (start+1, end+1),
-                   (start+1, end)
+        indices = ((start, len(expected)),
+                   (start, len(expected)-1),
+                   (0, end+1),
+                   (1, end),
+                   (start, len(expected)),
+                   (start, len(expected)-1),
+                   (0, end+1),
+                   (1, end)
         )
         for index in range(len(range_type)):
+            import pdb
+            pdb.set_trace()
             keyset = KeySet(ranges=range_type[index])
             rows = list(session.read(self.TABLE,
                                      columns,

@@ -90,7 +90,7 @@ def system(session, py):
     session.install('-e', '.')
 
     # Run py.test against the system tests.
-    session.run('py.test', '--quiet', 'tests/system', *session.posargs)
+    session.run('py.test', '--quiet', 'tests/system', '-k', 'test_read_with_partial_keys', *session.posargs)
 
 
 @nox.session
