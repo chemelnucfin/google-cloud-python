@@ -44,35 +44,23 @@ class TestKeyRange(unittest.TestCase):
 
     def test_ctor_w_only_start_open(self):
         KEY_1 = [u'key_1']
-        krange = self._make_one(start_open=KEY_1)
-        self.assertEqual(krange.start_open, KEY_1)
-        self.assertEqual(krange.start_closed, None)
-        self.assertEqual(krange.end_open, None)
-        self.assertEqual(krange.end_closed, None)
+        with self.assertRaises(ValueError):
+            krange = self._make_one(start_open=KEY_1)
 
     def test_ctor_w_only_start_closed(self):
         KEY_1 = [u'key_1']
-        krange = self._make_one(start_closed=KEY_1)
-        self.assertEqual(krange.start_open, None)
-        self.assertEqual(krange.start_closed, KEY_1)
-        self.assertEqual(krange.end_open, None)
-        self.assertEqual(krange.end_closed, None)
+        with self.assertRaises(ValueError):
+            krange = self._make_one(start_closed=KEY_1)
 
     def test_ctor_w_only_end_open(self):
         KEY_1 = [u'key_1']
-        krange = self._make_one(end_open=KEY_1)
-        self.assertEqual(krange.start_open, None)
-        self.assertEqual(krange.start_closed, None)
-        self.assertEqual(krange.end_open, KEY_1)
-        self.assertEqual(krange.end_closed, None)
+        with self.assertRaises(ValueError):
+            krange = self._make_one(end_open=KEY_1)
 
     def test_ctor_w_only_end_closed(self):
         KEY_1 = [u'key_1']
-        krange = self._make_one(end_closed=KEY_1)
-        self.assertEqual(krange.start_open, None)
-        self.assertEqual(krange.start_closed, None)
-        self.assertEqual(krange.end_open, None)
-        self.assertEqual(krange.end_closed, KEY_1)
+        with self.assertRaises(ValueError):
+            krange = self._make_one(end_closed=KEY_1)
 
     def test_ctor_w_start_open_and_end_closed(self):
         KEY_1 = [u'key_1']
