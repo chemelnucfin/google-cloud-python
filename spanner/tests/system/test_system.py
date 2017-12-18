@@ -379,7 +379,7 @@ class TestDatabaseAPI(unittest.TestCase, _TestData):
 
 
 class TestSessionAPI(unittest.TestCase, _TestData):
-    DATABASE_NAME = 'test_sessions' + unique_resource_id('_')
+    DATABASE_NAME = 'test_databases' + unique_resource_id('_')
     ALL_TYPES_TABLE = 'all_types'
     ALL_TYPES_COLUMNS = (
         'list_goes_on',
@@ -426,7 +426,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         for doomed in self.to_delete:
             doomed.delete()
 
-    def test_session_crud(self):
+    def test_database_crud(self):
         retry_true = RetryResult(operator.truth)
         retry_false = RetryResult(operator.not_)
         session = self._db.session()
@@ -444,12 +444,12 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        batch = session.batch()
+        batch = database.batch()
         batch.delete(self.TABLE, self.ALL)
         batch.insert(self.TABLE, self.COLUMNS, self.ROW_DATA)
         batch.commit()
 
-        snapshot = session.snapshot(read_timestamp=batch.committed)
+        snapshot = database.snapshot(read_timestamp=batch.committed)
         rows = list(snapshot.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_rows_data(rows)
 
@@ -469,11 +469,11 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(TABLE, self.ALL)
             batch.insert(TABLE, COLUMNS, ROWDATA)
 
-        snapshot = session.snapshot(read_timestamp=batch.committed)
+        snapshot = database.snapshot(read_timestamp=batch.committed)
         rows = list(snapshot.read(TABLE, COLUMNS, self.ALL))
         self._check_rows_data(rows, expected=ROWDATA)
 
@@ -485,14 +485,14 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.ALL_TYPES_TABLE, self.ALL)
             batch.insert(
                 self.ALL_TYPES_TABLE,
                 self.ALL_TYPES_COLUMNS,
                 self.ALL_TYPES_ROWDATA)
 
-        snapshot = session.snapshot(read_timestamp=batch.committed)
+        snapshot = database.snapshot(read_timestamp=batch.committed)
         rows = list(snapshot.read(
             self.ALL_TYPES_TABLE, self.ALL_TYPES_COLUMNS, self.ALL))
         self._check_rows_data(rows, expected=self.ALL_TYPES_ROWDATA)
@@ -505,10 +505,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.insert_or_update(self.TABLE, self.COLUMNS, self.ROW_DATA)
 
-        snapshot = session.snapshot(read_timestamp=batch.committed)
+        snapshot = database.snapshot(read_timestamp=batch.committed)
         rows = list(snapshot.execute_sql(self.SQL))
         self._check_rows_data(rows)
 
@@ -521,10 +521,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.TABLE, self.ALL)
 
-        transaction = session.transaction()
+        transaction = database.transaction()
         transaction.begin()
 
         rows = list(transaction.read(self.TABLE, self.COLUMNS, self.ALL))
@@ -537,7 +537,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         self.assertEqual(rows, [])
         transaction.rollback()
 
-        rows = list(session.read(self.TABLE, self.COLUMNS, self.ALL))
+        rows = list(database.read(self.TABLE, self.COLUMNS, self.ALL))
         self.assertEqual(rows, [])
 
     def _transaction_read_then_raise(self, transaction):
@@ -555,14 +555,14 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.TABLE, self.ALL)
 
         with self.assertRaises(CustomException):
-            session.run_in_transaction(self._transaction_read_then_raise)
+            database.run_in_transaction(self._transaction_read_then_raise)
 
         # Transaction was rolled back.
-        rows = list(session.read(self.TABLE, self.COLUMNS, self.ALL))
+        rows = list(database.read(self.TABLE, self.COLUMNS, self.ALL))
         self.assertEqual(rows, [])
 
     @RetryErrors(exception=GrpcRendezvous)
@@ -574,10 +574,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.TABLE, self.ALL)
 
-        with session.transaction() as transaction:
+        with database.transaction() as transaction:
             rows = list(transaction.read(self.TABLE, self.COLUMNS, self.ALL))
             self.assertEqual(rows, [])
 
@@ -588,7 +588,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
             rows = list(transaction.read(self.TABLE, self.COLUMNS, self.ALL))
             self.assertEqual(rows, [])
 
-        rows = list(session.read(self.TABLE, self.COLUMNS, self.ALL))
+        rows = list(database.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_rows_data(rows)
 
     def _transaction_concurrency_helper(self, unit_of_work, pkey):
@@ -602,7 +602,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         session.create()
         self.to_delete.append(session)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.insert_or_update(
                 COUNTERS_TABLE, COUNTERS_COLUMNS, [[pkey, INITIAL_VALUE]])
 
@@ -629,7 +629,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
             thread.join()
 
         keyset = KeySet(keys=[(pkey,)])
-        rows = list(session.read(
+        rows = list(database.read(
             COUNTERS_TABLE, COUNTERS_COLUMNS, keyset))
         self.assertEqual(len(rows), 1)
         _, value = rows[0]
@@ -676,7 +676,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
 
         trigger = _ReadAbortTrigger()
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(COUNTERS_TABLE, self.ALL)
             batch.insert(
                 COUNTERS_TABLE,
@@ -697,7 +697,7 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         provoker.join()
         handler.join()
 
-        rows = list(session.read(COUNTERS_TABLE, COUNTERS_COLUMNS, self.ALL))
+        rows = list(database.read(COUNTERS_TABLE, COUNTERS_COLUMNS, self.ALL))
         self._check_row_data(
             rows, expected=[[trigger.KEY1, 1], [trigger.KEY2, 1]])
 
@@ -726,19 +726,19 @@ class TestSessionAPI(unittest.TestCase, _TestData):
             transaction.insert(
                 test.TABLE, test.COLUMNS, test._row_data(row_count))
 
-        committed = session.run_in_transaction(_unit_of_work, test=self)
+        committed = database.run_in_transaction(_unit_of_work, test=self)
 
-        return session, committed
+        return database, committed
 
     def test_read_with_single_keys_index(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         expected = [[row[1], row[2]] for row in self._row_data(row_count)]
         row = 5
         keyset = [[expected[row][0], expected[row][1]]]
-        results_iter = session.read(self.TABLE,
+        results_iter = database.read(self.TABLE,
                                     columns,
                                     KeySet(keys=keyset),
                                     index='name'
@@ -749,10 +749,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_empty_read_with_single_keys_index(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         keyset = [["Non", "Existent"]]
-        results_iter = session.read(self.TABLE,
+        results_iter = database.read(self.TABLE,
                                     columns,
                                     KeySet(keys=keyset),
                                     index='name'
@@ -763,10 +763,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_read_with_multiple_keys_index(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         expected = [[row[1], row[2]] for row in self._row_data(row_count)]
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  KeySet(keys=expected),
                                  index='name')
@@ -777,43 +777,43 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         from datetime import datetime
         from google.cloud._helpers import UTC
         ROW_COUNT = 400
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
         all_data_rows = list(self._row_data(ROW_COUNT))
 
         before_reads = datetime.utcnow().replace(tzinfo=UTC)
 
         # Test w/ read timestamp
-        read_tx = session.snapshot(read_timestamp=committed)
+        read_tx = database.snapshot(read_timestamp=committed)
         rows = list(read_tx.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(rows, all_data_rows)
 
         # Test w/ min read timestamp
-        min_read_ts = session.snapshot(min_read_timestamp=committed)
+        min_read_ts = database.snapshot(min_read_timestamp=committed)
         rows = list(min_read_ts.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(rows, all_data_rows)
 
         staleness = datetime.utcnow().replace(tzinfo=UTC) - before_reads
 
         # Test w/ max staleness
-        max_staleness = session.snapshot(max_staleness=staleness)
+        max_staleness = database.snapshot(max_staleness=staleness)
         rows = list(max_staleness.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(rows, all_data_rows)
 
         # Test w/ exact staleness
-        exact_staleness = session.snapshot(exact_staleness=staleness)
+        exact_staleness = database.snapshot(exact_staleness=staleness)
         rows = list(exact_staleness.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(rows, all_data_rows)
 
         # Test w/ strong
-        strong = session.snapshot()
+        strong = database.snapshot()
         rows = list(strong.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(rows, all_data_rows)
 
     def test_multiuse_snapshot_read_isolation_strong(self):
         ROW_COUNT = 40
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
         all_data_rows = list(self._row_data(ROW_COUNT))
-        strong = session.snapshot(multi_use=True)
+        strong = database.snapshot(multi_use=True)
 
         before = list(strong.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(before, all_data_rows)
@@ -826,9 +826,9 @@ class TestSessionAPI(unittest.TestCase, _TestData):
 
     def test_multiuse_snapshot_read_isolation_read_timestamp(self):
         ROW_COUNT = 40
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
         all_data_rows = list(self._row_data(ROW_COUNT))
-        read_ts = session.snapshot(read_timestamp=committed, multi_use=True)
+        read_ts = database.snapshot(read_timestamp=committed, multi_use=True)
 
         before = list(read_ts.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(before, all_data_rows)
@@ -842,13 +842,13 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_multiuse_snapshot_read_isolation_exact_staleness(self):
         ROW_COUNT = 40
 
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
         all_data_rows = list(self._row_data(ROW_COUNT))
 
         time.sleep(1)
         delta = datetime.timedelta(microseconds=1000)
 
-        exact = session.snapshot(exact_staleness=delta, multi_use=True)
+        exact = database.snapshot(exact_staleness=delta, multi_use=True)
 
         before = list(exact.read(self.TABLE, self.COLUMNS, self.ALL))
         self._check_row_data(before, all_data_rows)
@@ -876,9 +876,9 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         # We want to make sure the operation completes.
         operation.result(30)  # raises on failure / timeout.
 
-        session, committed = self._set_up_table(ROW_COUNT, db=temp_db)
+        database, committed = self._set_up_table(ROW_COUNT, db=temp_db)
 
-        snapshot = session.snapshot(read_timestamp=committed)
+        snapshot = database.snapshot(read_timestamp=committed)
         rows = list(snapshot.read(
             self.TABLE, MY_COLUMNS, self.ALL, index='contacts_by_last_name'))
 
@@ -888,9 +888,9 @@ class TestSessionAPI(unittest.TestCase, _TestData):
 
     def test_read_w_single_key(self):
         ROW_COUNT = 40
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
 
-        snapshot = session.snapshot(read_timestamp=committed)
+        snapshot = database.snapshot(read_timestamp=committed)
         rows = list(snapshot.read(
             self.TABLE, self.COLUMNS, KeySet(keys=[(0,)])))
 
@@ -900,17 +900,17 @@ class TestSessionAPI(unittest.TestCase, _TestData):
 
     def test_empty_read(self):
         ROW_COUNT = 40
-        session, committed = self._set_up_table(ROW_COUNT)
-        rows = list(session.read(
+        database, committed = self._set_up_table(ROW_COUNT)
+        rows = list(database.read(
             self.TABLE, self.COLUMNS, KeySet(keys=[(40,)])))
         self._check_row_data(rows, [])
 
     def test_read_w_multiple_keys(self):
         ROW_COUNT = 40
         indices = [0, 5, 17]
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
 
-        snapshot = session.snapshot(read_timestamp=committed)
+        snapshot = database.snapshot(read_timestamp=committed)
         rows = list(snapshot.read(
             self.TABLE, self.COLUMNS,
             KeySet(keys=[(index,) for index in indices])))
@@ -922,9 +922,9 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_read_w_limit(self):
         ROW_COUNT = 3000
         LIMIT = 100
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
 
-        snapshot = session.snapshot(read_timestamp=committed)
+        snapshot = database.snapshot(read_timestamp=committed)
         rows = list(snapshot.read(
             self.TABLE, self.COLUMNS, self.ALL, limit=LIMIT))
 
@@ -936,8 +936,8 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         ROW_COUNT = 3000
         START = 1000
         END = 2000
-        session, committed = self._set_up_table(ROW_COUNT)
-        snapshot = session.snapshot(read_timestamp=committed, multi_use=True)
+        database, committed = self._set_up_table(ROW_COUNT)
+        snapshot = database.snapshot(read_timestamp=committed, multi_use=True)
         all_data_rows = list(self._row_data(ROW_COUNT))
 
         closed_closed = KeyRange(start_closed=[START], end_closed=[END])
@@ -972,60 +972,60 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end = 3, 7
         krange = KeyRange(start_closed=data[start], end_closed=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE, columns, keyset, index='name'))
+        rows = list(database.read(self.TABLE, columns, keyset, index='name'))
         self.assertEqual(rows, data[start : end+1])
 
     def test_read_with_range_keys_index_closed_open(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end = 3, 7
         krange = KeyRange(start_closed=data[start], end_open=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE, columns, keyset, index='name'))
+        rows = list(database.read(self.TABLE, columns, keyset, index='name'))
         self.assertEqual(rows, data[start:end])
 
     def test_read_with_range_keys_index_open_closed(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end = 3, 7
         krange = KeyRange(start_open=data[start], end_closed=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE, columns, keyset, index='name'))
+        rows = list(database.read(self.TABLE, columns, keyset, index='name'))
         self.assertEqual(rows, data[start+1 : end+1])
 
     def test_read_with_range_keys_index_open_open(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end = 3, 7
         krange = KeyRange(start_open=data[start], end_open=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE, columns, keyset, index='name'))
+        rows = list(database.read(self.TABLE, columns, keyset, index='name'))
         self.assertEqual(rows, data[start+1 : end])
 
     def test_read_with_range_keys_index_limit_closed_closed(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end, limit = 3, 7, 2
         krange = KeyRange(start_closed=data[start], end_closed=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name',
@@ -1037,12 +1037,12 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end, limit = 3, 7, 2
         krange = KeyRange(start_closed=data[start], end_open=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name',
@@ -1054,12 +1054,12 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end, limit = 3, 7, 2
         krange = KeyRange(start_open=data[start], end_closed=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name',
@@ -1071,12 +1071,12 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
-        session, _ = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, _ = self._set_up_table(row_count)
+        self.to_delete.append(database)
         start, end, limit = 3, 7, 2
         krange = KeyRange(start_open=data[start], end_open=data[end])
         keyset = KeySet(ranges=(krange,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name',
@@ -1088,15 +1088,15 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
 
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
         keyrow, start, end = 1, 3, 7
         closed_closed = KeyRange(start_closed=data[start],
                                  end_closed=data[end])
         keys = [data[keyrow],]
         keyset = KeySet(keys=keys, ranges=(closed_closed,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name')
@@ -1107,15 +1107,15 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_read_with_range_keys_and_index_closed_open(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
         keyrow, start, end = 1, 3, 7
         closed_open = KeyRange(start_closed=data[start],
                                end_open=data[end])
         keys = [data[keyrow],]
         keyset = KeySet(keys=keys, ranges=(closed_open,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name')
@@ -1126,15 +1126,15 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_read_with_range_keys_and_index_open_closed(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
         keyrow, start, end = 1, 3, 7
         open_closed = KeyRange(start_open=data[start],
                                end_closed=data[end])
         keys = [data[keyrow],]
         keyset = KeySet(keys=keys, ranges=(open_closed,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name')
@@ -1145,15 +1145,15 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_read_with_range_keys_and_index_open_open(self):
         row_count = 10
         columns = self.COLUMNS[1], self.COLUMNS[2]
-        session, committed = self._set_up_table(row_count)
-        self.to_delete.append(session)
+        database, committed = self._set_up_table(row_count)
+        self.to_delete.append(database)
         data = [[row[1], row[2]] for row in self._row_data(row_count)]
         keyrow, start, end = 1, 3, 7
         open_open = KeyRange(start_open=data[start],
                              end_open=data[end])
         keys = [data[keyrow],]
         keyset = KeySet(keys=keys, ranges=(open_open,))
-        rows = list(session.read(self.TABLE,
+        rows = list(database.read(self.TABLE,
                                  columns,
                                  keyset,
                                  index='name')
@@ -1163,12 +1163,12 @@ class TestSessionAPI(unittest.TestCase, _TestData):
 
     def test_execute_sql_w_manual_consume(self):
         ROW_COUNT = 3000
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
 
-        snapshot = session.snapshot(read_timestamp=committed)
+        snapshot = database.snapshot(read_timestamp=committed)
         streamed = snapshot.execute_sql(self.SQL)
         keyset = KeySet(all_=True)
-        rows = list(session.read(self.TABLE, self.COLUMNS, keyset))
+        rows = list(database.read(self.TABLE, self.COLUMNS, keyset))
         self.assertEqual(list(streamed), rows)
         self.assertEqual(streamed._current_row, [])
         self.assertEqual(streamed._pending_chunk, None)
@@ -1184,9 +1184,9 @@ class TestSessionAPI(unittest.TestCase, _TestData):
     def test_multiuse_snapshot_execute_sql_isolation_strong(self):
         ROW_COUNT = 40
         SQL = 'SELECT * FROM {}'.format(self.TABLE)
-        session, committed = self._set_up_table(ROW_COUNT)
+        database, committed = self._set_up_table(ROW_COUNT)
         all_data_rows = list(self._row_data(ROW_COUNT))
-        strong = session.snapshot(multi_use=True)
+        strong = database.snapshot(multi_use=True)
 
         before = list(strong.execute_sql(SQL))
         self._check_row_data(before, all_data_rows)
@@ -1204,10 +1204,10 @@ class TestSessionAPI(unittest.TestCase, _TestData):
             "UNION ALL SELECT 'b' AS C1, 2 AS C2) "
             "ORDER BY C1 ASC)"
         )
-        session = self._db.session()
-        session.create()
-        self.to_delete.append(session)
-        snapshot = session.snapshot()
+        database = self._db.database()
+        database.create()
+        self.to_delete.append(database)
+        snapshot = database.snapshot()
         self._check_sql_results(
             snapshot,
             sql=SQL,
@@ -1218,18 +1218,18 @@ class TestSessionAPI(unittest.TestCase, _TestData):
             ])
 
     def test_execute_sql_w_query_param(self):
-        session = self._db.session()
-        session.create()
-        self.to_delete.append(session)
+        database = self._db.database()
+        database.create()
+        self.to_delete.append(database)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.ALL_TYPES_TABLE, self.ALL)
             batch.insert(
                 self.ALL_TYPES_TABLE,
                 self.ALL_TYPES_COLUMNS,
                 self.ALL_TYPES_ROWDATA)
 
-        snapshot = session.snapshot(
+        snapshot = database.snapshot(
             read_timestamp=batch.committed, multi_use=True)
 
         # Cannot equality-test array values.  See below for a test w/
@@ -1350,18 +1350,18 @@ class TestSessionAPI(unittest.TestCase, _TestData):
         )
 
     def test_execute_sql_w_query_param_transfinite(self):
-        session = self._db.session()
-        session.create()
-        self.to_delete.append(session)
+        database = self._db.database()
+        database.create()
+        self.to_delete.append(database)
 
-        with session.batch() as batch:
+        with database.batch() as batch:
             batch.delete(self.ALL_TYPES_TABLE, self.ALL)
             batch.insert(
                 self.ALL_TYPES_TABLE,
                 self.ALL_TYPES_COLUMNS,
                 self.ALL_TYPES_ROWDATA)
 
-        snapshot = session.snapshot(
+        snapshot = database.snapshot(
             read_timestamp=batch.committed, multi_use=True)
 
         # Find -inf
