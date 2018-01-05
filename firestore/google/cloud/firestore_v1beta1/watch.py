@@ -36,7 +36,11 @@ class Watch(object):
         self._comparator = comparator
         self._backoff = retry.exponential_sleep_generator(_INITIAL_SLEEP,
                                                           _MAXIMUM_DELAY)
-        self._queue = threading.queue
+        if isinstance(queue, threading.Queue()):
+            pass
+        elif isinstance(queue, multiprocessing.Queue()):
+            pass
+        self._queue = queue
 
     @classmethod
     def for_document(cls, document_reference): #done
@@ -119,7 +123,6 @@ class Watch(object):
 
             changed = target_ids and target_id in target_ids
             removed = target_ids and target_id in removed_target_ids
-  
             document = listen_response.document_change.document
             name = document.name
 
@@ -219,6 +222,28 @@ class Watch(object):
 
         def comparator_sort(name1, name2):
             return self._comparator(updated_map[name1], updated_map[name2])
+
+        changes.deletes.sort(comparator_sort)
+
+        for name in changes.deletes:
+            changes.delete_doc(name)
+            if change:
+                applied_changes.push(change)
+
+        changes.adds.sort(self._compartor)
+
+        for snapshot in changes.adds:
+            change = add_doc(snapshot)
+            if change:
+                applied_changes.push(change)
+
+        changes.updates.sort(self._compartor)
+
+        for snapshot in changes.updates:
+            change = modify_doc(snapshot)
+            if change:
+                applied_changes.push(change)
+
         if not len(updated_tree) == len(updated_map):
             raise RuntimeError('The update document tree and document '
                                'map should have the same number of '
@@ -351,7 +376,6 @@ class Watch(object):
             None
         """
         
-
         if not self.is_active:
             _LOGGER.info('Not initializing inactive stream')
             return
@@ -361,8 +385,6 @@ class Watch(object):
             if request = STOP:
                 break
             yield request
-            self._backoff.back_off_and_wait()            
-            
 
         backend_stream = self._firestore.read_write_stream(
             self._api.Firestore._listen.bind(self._api.Firestore),

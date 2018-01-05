@@ -21,5 +21,3 @@ class DocumentSet(object):
         if document is None:
             return -1
         
-        
-    

@@ -19,7 +19,6 @@ import collections
 import datetime
 import re
 import enum
-import sys
 
 from google.protobuf import struct_pb2
 from google.type import latlng_pb2
