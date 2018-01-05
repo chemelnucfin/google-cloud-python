@@ -191,6 +191,25 @@ class CollectionReference(object):
         query = query_mod.Query(self)
         return query.select(field_paths)
 
+    def comparator(self, left, right):
+        """Create a "comparator" query with this collection as parent.
+
+        See
+        :meth:`~.firestore_v1beta1.query.Query.select` for
+        more information on this method.
+
+        Args:
+            left (Iterable[str, ...]): An iterable of field paths
+                (``.``-delimited list of field names) to use as a projection
+                of document fields in the query results.
+            right ():
+
+        Returns:
+            ~.firestore_v1beta1.query.Query: A "compared" query.
+        """
+        query = query_mod.Query(self)
+        return query.comparator(left, right)
+
     def where(self, field_path, op_string, value):
         """Create a "where" query with this collection as parent.
 

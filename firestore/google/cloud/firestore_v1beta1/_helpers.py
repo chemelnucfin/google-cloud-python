@@ -18,6 +18,8 @@
 import collections
 import datetime
 import re
+import enum
+import sys
 
 from google.protobuf import struct_pb2
 from google.type import latlng_pb2
@@ -63,6 +65,20 @@ _GRPC_ERROR_MAPPING = {
     grpc.StatusCode.ALREADY_EXISTS: exceptions.Conflict,
     grpc.StatusCode.NOT_FOUND: exceptions.NotFound,
 }
+
+
+@enum.unique
+class TypeOrder(enum.Enum):
+    NULL = 0
+    BOOLEAN = 1
+    NUMBER = 2
+    TIMESTAMP = 3
+    STRING = 4
+    BLOB = 5
+    REF = 6
+    GEO_POINT = 7
+    ARRAY = 8
+    OBJECT = 9
 
 
 class GeoPoint(object):
@@ -113,6 +129,47 @@ class GeoPoint(object):
             return NotImplemented
         else:
             return not equality_val
+
+    def __lt__(self, other):
+        """ Compare two geopoints by first comparing latitude then longitude 
+        
+        
+
+        """
+        if not isinstance(other, GeoPoint):
+            return NotImplemented
+
+        if self.latitude < other.latitude:
+            return True
+        elif self.latitude > other.latitude:
+            return False
+        else:
+            return self.longitude < other.longitude
+
+    def __ge__(self, other):
+        less_than = self < other
+        if less_than is NotImplemented:
+            return NotImplemented
+        else:
+            return not less_than
+
+    def __gt__(self, other):
+        if not isinstance(other, GeoPoint):
+            return NotImplemented
+
+        if self.latitude > other.latitude:
+            return True
+        elif self.latitude < other.latitude:
+            return False
+        else:
+            return self.longitude > other.longitude
+
+    def __le__(self, other):
+        greater_than = self > other
+        if greater_than is NotImplemented:
+            return NotImplemented
+        else:
+            return not greater_than
 
 
 class FieldPath(object):
@@ -430,6 +487,98 @@ def verify_path(path, is_collection):
         if not isinstance(element, six.string_types):
             msg = BAD_PATH_TEMPLATE.format(element, type(element))
             raise ValueError(msg)
+
+
+def compare_value(left, right):
+    """ Comparison function for all Firestore types
+
+    Compares two firestore types and returns -1 if left is smaller than right,
+    0 if left == right, and 1 if left is greater than right.
+
+    Args:
+        left: Firestore type to compare
+        right: Firestore type to compare
+
+    Returns -1 if left < right, 0 if left == right, and 1 if left > right
+
+    """
+    def compare_bool(left, right):
+        if left < right:
+            return -1
+        
+    if get_value_type(left) < get_value_type(right):
+        return -1
+    elif get_value_type(left) > get_value_type(left):
+        return 1
+    else:
+        if left is None:
+            return 0
+        if (isinstance(left, bool)
+              or isinstance(left, six.integer_types)
+              or isinstance(left, float)
+              or isinstance(left, datetime.datetime)
+              or isinstance(left, six.text_type)
+              or isinstance(left, list)
+              or isinstance(left, GeoPoint)
+        ):
+            return (left > right) - (left < right)
+        if isinstance(left, six.integer_types) or isinstance(left, float):
+            return TypeOrder.NUMBER
+        if isinstance(left, datetime.datetime):
+            return TypeOrder.TIMESTAMP
+        if isinstance(left, six.text_type):
+            return TypeOrder.STRING
+        if isinstance(left, six.binary_type):
+            return TypeOrder.BLOB
+
+        # NOTE: We avoid doing an isinstance() check for a Document
+        #       here to avoid import cycles.
+        document_path = getattr(left, '_document_path', None)
+        if document_path is not None:
+            return TypeOrder.REF
+        if isinstance(left, GeoPoint):
+            return TypeOrder.GEO_POINT
+        if isinstance(left, list):
+            return TypeOrder.ARRAY
+        if isinstance(left, dict):
+            return TypeOrder.OBJECT
+        raise TypeError(
+            'Cannot convert to a Firestore Value', value,
+            'Invalid type', type(value))
+
+
+        
+    
+
+
+def get_value_type(value):
+    if value is None:
+        return TypeOrder.NULL
+    if isinstance(value, bool):
+        return TypeOrder.BOOLEAN
+    if isinstance(value, six.integer_types) or isinstance(value, float):
+        return TypeOrder.NUMBER
+    if isinstance(value, datetime.datetime):
+        return TypeOrder.TIMESTAMP
+    if isinstance(value, six.text_type):
+        return TypeOrder.STRING
+    if isinstance(value, six.binary_type):
+        return TypeOrder.BLOB
+
+    # NOTE: We avoid doing an isinstance() check for a Document
+    #       here to avoid import cycles.
+    document_path = getattr(value, '_document_path', None)
+    if document_path is not None:
+        return TypeOrder.REF
+    if isinstance(value, GeoPoint):
+        return TypeOrder.GEO_POINT
+    if isinstance(value, list):
+        return TypeOrder.ARRAY
+    if isinstance(value, dict):
+        return TypeOrder.OBJECT
+    raise TypeError(
+        'Cannot convert to a Firestore Value', value,
+        'Invalid type', type(value))
 
 
 def encode_value(value):

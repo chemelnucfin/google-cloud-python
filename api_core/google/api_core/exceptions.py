@@ -441,3 +441,19 @@ def from_grpc_error(rpc_exc):
     else:
         return GoogleAPICallError(
             str(rpc_exc), errors=(rpc_exc,), response=rpc_exc)
+
+
+def is_permanent_error(error):
+    try:
+        return error.code not in [grpc.StatusCode.CANCELLED,
+                                  grpc.StatusCode.UNKNOWN,
+                                  grpc.StatusCode.DEADLINE_EXCEEDED,
+                                  grpc.StatusCode.RESOURCE_EXHAUSTED,
+                                  grpc.StatusCode.INTERNAL,
+                                  grpc.StatusCode.UNAVAILABLE,
+                                  grpc.StatusCode.UNAUTHENTICATED]
+    except AttributeError:
+        return True
+
+
+    

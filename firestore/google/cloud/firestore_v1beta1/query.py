@@ -239,6 +239,12 @@ class Query(object):
             end_at=self._end_at,
         )
 
+    def comparator(self, left, right):
+        pass
+        
+        
+        
+
     def order_by(self, field_path, direction=ASCENDING):
         """Modify the query to add an order clause on a specific field.
 
