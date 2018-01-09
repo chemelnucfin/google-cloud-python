@@ -1,4 +1,5 @@
 import logging
+import namedtuple
 import threading
 import multiprocessing
 
@@ -35,11 +36,7 @@ class Watch(object):
         self._comparator = comparator
         self._backoff = retry.exponential_sleep_generator(_INITIAL_SLEEP,
                                                           _MAXIMUM_DELAY)
-        if isinstance(queue, threading.Queue()):
-            pass
-        elif isinstance(queue, multiprocessing.Queue()):
-            pass
-        self._queue = queue
+        self._queue = threading.queue
 
     @classmethod
     def for_document(cls, document_reference): #done
@@ -94,7 +91,7 @@ class Watch(object):
                 if WATCH_TARGET_ID != change.target_ids[0]:
                     raise ValueError('Unexpected target ID sent by server')
             elif change.target_change_type == 'REMOVE':
-                code = 13
+                code = grpc.StatusCode.CANCELLED
                 message = 'internal error'
                 if change.cause:
                     code = change.cause.code
@@ -107,6 +104,12 @@ class Watch(object):
             else:
                 self._close_stream(Error('Unknown target change type: '
                                    + str(change)))
+            if (change.resume_token is not None
+                    and self._affects_target(change.get_target_ids_list(), 
+                                             WATCH_TARGET_ID)
+            ):
+                self.next_attempt = next(self._backoff)
+                                         
 
         def document_change(listen_response):
             _LOGGER.info('Processing change event')
@@ -114,17 +117,9 @@ class Watch(object):
             target_ids = listen_response.document_change.target_ids
             removed_target_ids = listen_response.document_change.removed_target_ids
 
-            changed = False
-            removed = False
+            changed = target_ids and target_id in target_ids
+            removed = target_ids and target_id in removed_target_ids
   
-            for target_id in target_ids:
-                if target_id == WATCH_TARGET_ID:
-                    changed = True
-
-            for target_id in removed_target_ids:
-                if removed_target_ids == WATCH_TARGET_ID:
-                    removed = True
-
             document = listen_response.document_change.document
             name = document.name
 
@@ -139,10 +134,10 @@ class Watch(object):
                                             DocumentSnapshot.to_ISO_time(
                                                 document.update_time)
                                             )
-                change_map[name] = snapshot
+                self._change_map[name] = snapshot
             elif removed:
                 _LOGGER.info('Received document remove')
-                del change_map[name]
+                self._change_map.pop('name', None)
 
         if listen_response.target_change:
             target_change(listen_response)
@@ -151,11 +146,11 @@ class Watch(object):
         elif listen_response.document_delete
             _LOGGER.info('Processing remove event')
             name = listen_response.document_delete.document
-            del change_map[name]
+            self._change_map.pop('name', None)
         elif listen_response.document_remove:
             _LOGGER.info('Processing remove event')
             name = listen_response.document_remove.document
-            del change_map[name] 
+            self._change_map.pop('name', None)
         elif listen_response.filter:
             _LOGGER.info('Processing filter update')
             if listen_response.filter.count != self._current_size():
@@ -208,10 +203,6 @@ class Watch(object):
             self.on_error(exc_info)
                     
             
-        doc_tree = rbtree(self.comparator)
-        doc_map = {}
-        change_map = {}
-
         current = False
         has_pushed = False
         is_active = True
@@ -228,27 +219,6 @@ class Watch(object):
 
         def comparator_sort(name1, name2):
             return self._comparator(updated_map[name1], updated_map[name2])
-        changes.deletes.sort(comparator_sort)
-
-        for name in changes.deletes:
-            changes.delete_doc(name)
-            if change:
-                applied_changes.push(change)
-
-        changes.adds.sort(self._compartor)
-
-        for snapshot in changes.adds:
-            change = add_doc(snapshot)
-            if change:
-                applied_changes.push(change)
-
-        changes.updates.sort(self._compartor)
-
-        for snapshot in changes.updates:
-            change = modify_doc(snapshot)
-            if change:
-                applied_changes.push(change)
-
         if not len(updated_tree) == len(updated_map):
             raise RuntimeError('The update document tree and document '
                                'map should have the same number of '
@@ -282,7 +252,7 @@ class Watch(object):
         return end_stream
         
 
-    def _current_size(self):
+    def _current_size(self): #done
         """ Returns the current count of all documents
 
         Args:
@@ -292,10 +262,10 @@ class Watch(object):
             The current size of all documents, including changes to the current
             change_map.
         """
-        changes = self._extract_changes(doc_map, change_map):
-        return doc_map.size + len(changes.adds) - len(changes.deletes)
+        changes = self._extract_changes(self.read_time)
+        return self._document_set.size + len(changes.adds) - len(changes.deletes)
 
-    def _reset_docs(self):
+    def _reset_docs(self): #done
         """ Helper to clear the docs on RESET or fliter mismatch
 
         Args:
@@ -304,13 +274,13 @@ class Watch(object):
         Returns:
             None
         """
-        change_map.clear()
+        self._change_map.clear()
         del resume_token
-        for snapshot in doc_tree:
-            change_map.set(snapshot.ref._document_path, REMOVED)
+        for snapshot in self._document_set:
+            self._change_map[snapshot.reference.path] = None
         current = False
 
-    def _close_stream(self, error):
+    def _close_stream(self, error): #done
         """ Closes the stream and calls onError() if the stream is still active.
 
         Args:
@@ -346,10 +316,10 @@ class Watch(object):
                           'retryable error: ',
                           error)
             request.add_target.resume_token = resume_token
-            change_map.clear()
+            self._change_map.clear()
 
         if error.code == grpc.StatusCode.ResourceExhausted:
-            self._backoff.reset_to_max()
+            next(self._backoff)
             self._reset_stream()
         else:
             _LOGGER.error('Stream ended, sending error: ', error)
@@ -365,7 +335,7 @@ class Watch(object):
             None
         """
         _LOGGER.info('Opening new stream')
-        if current_stream:
+        if current_stream is not None:
             current_stream.unpipe(stream)
             current_stream.end()
             current_stream = None
@@ -381,8 +351,8 @@ class Watch(object):
             None
         """
         
-        self._backoff.back_off_and_wait()
-        if not is_active:
+
+        if not self.is_active:
             _LOGGER.info('Not initializing inactive stream')
             return
 
@@ -391,7 +361,7 @@ class Watch(object):
             if request = STOP:
                 break
             yield request
-            
+            self._backoff.back_off_and_wait()            
             
 
         backend_stream = self._firestore.read_write_stream(
@@ -407,14 +377,6 @@ class Watch(object):
 
         current_stream.on('error')(on_error)
 
-        # def on_end():
-        # current_stream.on('end')(on_end)
-        # current_stream.pipe(stream)
-        # current_stream.resume()
-
-        # current_stream.catch(_close_stream)
-
-        
     def _affects_target(self, target_ids, current_id): #done
         """ Checks if the current target ID is included in the list of targets.
         
@@ -427,78 +389,75 @@ class Watch(object):
         """
         return target_ids is not None and current_id in target_ids
 
-    def _extract_changes(self, doc_map, changes, read_time):
+    def _extract_changes(self, changes, read_time): #done
         """ Split up document changes into removals, additions, and updates
 
         Args:
-            doc_map:
+            self._document_set:
             changes:
             read_time:
 
         Returns:
-            ``Tuple`` of deletes, adds, and updates lists
+            ``collections.namedtuple`` of deletes, adds, and updates lists
         """
-        deletes = []
-        adds = []
-        updates = []
+        change_set = collections.namedtuple('ChangeSet',
+                                            ['deletes', 'adds', 'updates'])
+        change_set.deletes = []
+        change_set.adds = []
+        change_set.updates = []
 
         for value, name in changes:
-            if value == REMOVED:
-                if doc_map.has(name):
-                    deletes.append(name)
-            elif doc_map.has(name):
+            if value is None:
+                if self._document_set.has(name):
+                    change_set.deletes.append(name)
+            elif self._document_set.has(name):
                 value.read_time = read_time
-                upates.append(value.build())
+                change_set.upates.append(value.build())
             else:
                 value.read_time = read_time
-                adds.append(value.build())
-        return deletes, adds, updates
+                change_set.adds.append(value.build())
+        return change_set
 
-    def _push_snapshot(self, read_time, next_resume_token):
+    def _push_snapshot(self, read_time, next_resume_token): 
         """ Assembles new snapshot from the current set of changes.
 
         Assembles a new snapshot from the current set of changes and invokes 
         the user's callback. Clears the current changes on completion.
 
         Args:
-            read_time:
-            next_resume_token:
+            read_time: Read time of the snapshot obtained
+            next_resume_token: The server assigned resume token
 
         Returns:
             None
         """
-        changes = self._extract_changes(doc_map, change_map, read_time)
-        diff = self._compute_snapshot(doc_tree, doc_map, changes)
+        diff = self._compute_snapshot(read_time)
 
-        if not has_pushed or len(diff.applied_changes) > 0:
+        if not has_pushed or len(diff) > 0:
             _LOGGER.info('Sending snapshot with %d changes and %d documents'
                          % (len(diff.applied_changes), len(updated_tree)))
 
         next(read_time, diff.updatedTree.keys, diff.applied_changes)
 
         doc_tree = diff.updated_tree
-        doc_map = diff.updated_map
+        self._document_set = diff.updated_map
         change_map.clear()
         resume_token = next_resume_token
 
-    def _delete_doc(self, name):
+    def _delete_doc(self, old_document): #done
         """Applies a document delete to the document tree.
 
         Args:
-            name: The name of the document to delete
+            old_document (DocumentSnapshot): The document snapshot to delete
 
         Returns:
-            The corresponding DocumentChange event.
-
-        Raises:
-            KeyError: If name not in updated_map
+            :class:~`DocumentChange`: The corresponding DocumentChange event.
         """
-        old_document = updated_map.pop(name) # Raises KeyError
-        existing = updated_tree.find(old_document)
-        old_index = existing.index
-        updated_tree = existing.remove()
-        return DocumentChange('removed',
-                              old_document,
+        resource_path = old_document.reference.path
+        old_index = document_set.index(resource_path)
+        document_set = docuemnt_set.remove(resource_path)
+        return DocumentChange(old_document,
+                              DocumentChange.REMOVED,
                               old_index,
                               -1)
 
@@ -520,8 +479,8 @@ class Watch(object):
         updated_tree = updated_tree.insert(new_document, null)
         new_index = updated_tree.find(new_document).index
         updated_map[name] = new_document
-        return DocumentChange('added',
-                              new_document,
+        return DocumentChange(new_document,
+                              DocumentChange.ADDED,
                               -1,
                               new_index)
 
@@ -545,20 +504,43 @@ class Watch(object):
         if old_document.update_time != document.update_time:
             remove_change = delete_doc(name)
             add_change = add_doc(document)
-            return DocumentChange('modified',
-                                  document,
+            return DocumentChange(document,
+                                  DocumentChange.MODIFIED,
                                   remove_change.old_index,
                                   add_change.new_index)
         return None
 
-    # def _compute_snapshot(self, doc_tree, doc_map, changes):
-        
-        
-        
-    #     if len(doc_tree) != doc_map:
-    #         raise ValueError('The document tree and document map should'
-    #                          'have the same number of entries.')
-    #     updated_tree  = doc_tree
-    #     updated_map = doc_map
+    def _compute_snapshot(self, read_time): #done
+        """ Applies the mutations in change_set to the document_set. 
 
-    # applied_changes = []
+        Applies the mutations in change_set to the document_set. Modifies
+        document_set in place and returns the applied DocumentChange events.
+
+        Args:
+            read_time(:class:`~datetime.datetime`): 
+                The time at which this snapshot was obtained.
+
+        Returns:
+            List(~.firestore_v1beta1.document_change.DocumentChange):
+                The changed documents.
+        """
+        applied_changes = []
+        change_set = self._extract_changes(read_time)
+
+        change_set.deletes.sort(cmp=self._comparator)
+
+        for delete in change_set.deletes:
+            applied_changes.append(self._delete_doc(delete))
+
+        change_set.adds.sort(self._compartor)
+
+        for add in change_set.adds:
+            applied_changes.append(self._add_doc(add))
+
+        change_set.updates.sort(self._compartor)
+
+        for update in change_set.updates:
+            change = self._modify_doc(update)
+            if change is not None:
+                applied_changes.push(change)
+
