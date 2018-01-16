@@ -40,9 +40,10 @@ def query(url, params, name):
                  .contents[2]
                  .strip()[:-5])
     items = soup.find_all('span', class_='opened-by')
-    print(r.url)
-    print(name, number)
-    print([int(item.contents[0].strip().split('\n')[0][1:]) for item in items])
+    if number > 0:
+        print(r.url)
+        print(name, number)
+        print([int(item.contents[0].strip().split('\n')[0][1:]) for item in items])
 
 
 issues = {'issues_with_no_type': (no+types.bug
@@ -93,8 +94,8 @@ pull_requests = {'pull_requests_with_no_type': (no+types.bug
                                                 + no+types.question
                                                 + no+types.cleanup
                                                 + no+types.process),
-                 'pull_requests_outside_response_slo': updated(42),
-                 'pull_requests_outside_closure_slo': created(120)}
+                 'pull_requests_outside_response_slo': updated(2),
+                 'pull_requests_outside_closure_slo': created(5)}
 
 
 for issue in issues:
