@@ -326,7 +326,7 @@ class Client(ClientWithProject):
 
         Yields:
             .DocumentSnapshot: The next document snapshot that fulfills the
-            query, or :data:`None` if the document does not exist.
+            query.
         """
         document_paths, reference_map = _reference_info(references)
         mask = _get_doc_mask(field_paths)
@@ -603,8 +603,7 @@ def _parse_batch_get(get_doc_response, reference_map, client):
             a document factory.
 
     Returns:
-        Optional[.DocumentSnapshot]: The retrieved snapshot. If the
-        snapshot is :data:`None`, that means the document is ``missing``.
+        .DocumentSnapshot: The retrieved snapshot.
 
     Raises:
         ValueError: If the response has a ``result`` field (a oneof) other
@@ -624,7 +623,14 @@ def _parse_batch_get(get_doc_response, reference_map, client):
             update_time=get_doc_response.found.update_time)
         return snapshot
     elif result_type == 'missing':
-        return None
+        snapshot = DocumentSnapshot(
+            None,
+            None,
+            exists=False,
+            read_time=get_doc_response.read_time,
+            create_time=get_doc_response.found.create_time,
+            update_time=get_doc_response.found.update_time)
+        return snapshot
     else:
         raise ValueError(
             '`BatchGetDocumentsResponse.result` (a oneof) had a field other '

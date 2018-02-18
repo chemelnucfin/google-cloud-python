@@ -422,16 +422,11 @@ class DocumentReference(object):
             ~.firestore_v1beta1.document.DocumentSnapshot: A snapshot of
             the current document.
 
-        Raises:
-            ~google.cloud.exceptions.NotFound: If the document does not exist.
         """
         snapshot_generator = self._client.get_all(
             [self], field_paths=field_paths, transaction=transaction)
         snapshot = _consume_single_get(snapshot_generator)
-        if snapshot is None:
-            raise exceptions.NotFound(self._document_path)
-        else:
-            return snapshot
+        return snapshot
 
 
 class DocumentSnapshot(object):

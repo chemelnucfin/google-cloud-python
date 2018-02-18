@@ -442,11 +442,16 @@ class TestDocumentReference(unittest.TestCase):
         client.get_all.assert_called_once_with(
             [document], field_paths=None, transaction=transaction)
 
-    def test_get_not_found(self):
-        from google.cloud.exceptions import NotFound
-
+    def test_get_non_existing_document(self):
+        from google.cloud.firestore_v1beta1.document import DocumentSnapshot
+        from datetime import datetime
         # Create a minimal fake client with a dummy response.
-        response_iterator = iter([None])
+        read_time = datetime.now()
+        create_time = datetime.now()
+        update_time = datetime.now()
+        response_iterator = iter([DocumentSnapshot(
+            None, None, exists=False, read_time=read_time,
+            create_time=create_time, update_time=update_time)])
         client = mock.Mock(
             _database_string='sprinklez',
             spec=['_database_string', 'get_all'])
@@ -455,8 +460,13 @@ class TestDocumentReference(unittest.TestCase):
         # Actually make a document and call get().
         document = self._make_one('house', 'cowse', client=client)
         field_paths = ['x.y', 'x.z', 't']
-        with self.assertRaises(NotFound):
-            document.get(field_paths=field_paths)
+        snapshot = document.get(field_paths=field_paths)
+        self.assertIsNone(snapshot.reference)
+        self.assertIsNone(snapshot._data)
+        self.assertFalse(snapshot.exists)
+        self.assertEqual(read_time, snapshot.read_time)
+        self.assertEqual(create_time, snapshot.create_time)
+        self.assertEqual(update_time, snapshot.update_time)
 
         # Verify the response and the mocks.
         client.get_all.assert_called_once_with(
