@@ -898,8 +898,9 @@ def pbs_for_set(document_path, document_data, option):
     transform_paths, actual_data = remove_server_timestamp(document_data)
     if not actual_data:
         if transform_paths:
-            write_pbs = transform_pb
-            return
+            transform_pb = get_transform_pb(document_path, transform_paths)            
+            write_pbs = [transform_pb]
+            return write_pbs
         else:
             raise ValueError('There is only ServerTimeStamp object')
     
@@ -971,7 +972,7 @@ def pbs_for_update(client, document_path, field_updates, option):
         option = client.write_option(exists=True)
 
     transform_paths, actual_updates = remove_server_timestamp(field_updates)
-    if not actual_data:
+    if not actual_updates:
         raise ValueError('There is only ServerTimeStamp object')
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_updates)
     field_paths = canonicalize_field_paths(field_paths)
