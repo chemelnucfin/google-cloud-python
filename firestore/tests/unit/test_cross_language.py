@@ -46,10 +46,10 @@ class TestCrossLanguage(unittest.TestCase):
             #     pdb.set_trace()
             except (AssertionError, Exception) as error:
                 import pdb
-                pdb.set_trace()
+#                pdb.set_trace()
                 count += 1
                 print(desc, test_proto)
-                print(error.message)
+                print(error.args[0])
                 descs.append(desc)
         for desc in descs:
             print(desc)
@@ -118,11 +118,16 @@ class TestCrossLanguage(unittest.TestCase):
                 paths.append(field_path.field[0])
             try:
                 data = convert_data(json.loads(tp.json_values[0]))
+            except:
+                data = None
+            try:
                 request = tp.request
-                call = functools.partial(doc.update, (paths, data, request))
-            except Exception:
-                import pdb
-                pdb.set_trace()
+            except:
+                request = None
+            call = functools.partial(doc.update, (paths, data, request))
+#            except Exception:
+#                import pdb
+#                pdb.set_trace()
                 
         else:
             assert kind == "delete"
@@ -134,9 +139,9 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-15' in desc:
+        if 'set-9' in desc:
             import pdb
-            pdb.set_trace()
+#            pdb.set_trace()
         
         
         if tp.is_error:

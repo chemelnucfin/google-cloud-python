@@ -33,6 +33,7 @@ from google.cloud.firestore_v1beta1.collection import CollectionReference
 from google.cloud.firestore_v1beta1.document import DocumentReference
 from google.cloud.firestore_v1beta1.document import DocumentSnapshot
 from google.cloud.firestore_v1beta1.gapic import firestore_client
+from google.cloud.firestore_v1beta1.proto import common_pb2
 from google.cloud.firestore_v1beta1.transaction import Transaction
 
 
@@ -420,48 +421,6 @@ class LastUpdateOption(WriteOption):
         current_doc = types.Precondition(
             update_time=self._last_update_time)
         write_pb.current_document.CopyFrom(current_doc)
-
-
-class CreateIfMissingOption(WriteOption):
-    """Option used to assert "create if missing" on a write operation.
-
-    This will typically be created by
-    :meth:`~.firestore_v1beta1.client.Client.write_option`.
-
-    Args:
-        create_if_missing (bool): Indicates if the document should be created
-            if it doesn't already exist.
-    """
-    def __init__(self, create_if_missing):
-        self._create_if_missing = create_if_missing
-
-    def modify_write(self, write_pb, no_create_msg=None):
-        """Modify a ``Write`` protobuf based on the state of this write option.
-
-        If:
-
-        * ``create_if_missing=False``, adds a precondition that requires
-          existence
-        * ``create_if_missing=True``, does not add any precondition
-        * ``no_create_msg`` is passed, raises an exception. For example, in a
-          :meth:`~.DocumentReference.delete`, no "create" can occur, so it
-          wouldn't make sense to "create if missing".
-
-        Args:
-            write_pb (google.cloud.firestore_v1beta1.types.Write): A
-                ``Write`` protobuf instance to be modified with a precondition
-                determined by the state of this option.
-            no_create_msg (Optional[str]): A message to use to indicate that
-                a create operation is not allowed.
-
-        Raises:
-            ValueError: If ``no_create_msg`` is passed.
-        """
-        if no_create_msg is not None:
-            raise ValueError(no_create_msg)
-        elif not self._create_if_missing:
-            current_doc = types.Precondition(exists=True)
-            write_pb.current_document.CopyFrom(current_doc)
 
 
 class ExistsOption(WriteOption):

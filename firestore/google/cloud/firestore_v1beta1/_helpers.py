@@ -343,7 +343,7 @@ class FieldPathHelper(object):
             ValueError: If there is an ambiguity.
         """
         if isinstance(field_path, six.string_types):
-            field_path = FieldPath.from_string(field_path)
+            field_path = FieldPath(field_path)
         parts = field_path.parts
         to_update = self.get_update_values(value)
         curr_paths = self.unpacked_field_paths
@@ -513,6 +513,22 @@ def encode_dict(values_dict):
         key: encode_value(value)
         for key, value in six.iteritems(values_dict)
     }
+
+
+def extract_field_paths(update_data):
+    field_paths = []
+    for field_name, value in six.iteritems(update_data):
+        match = re.match(FieldPath.simple_field_name, field_name)
+        if not (match and match.group(0) == field_name):
+            field_name = field_name.replace('\\', '\\\\').replace('`', '\\`')
+            field_name = '`' + field_name + '`'
+        if isinstance(value, dict):
+            sub_field_paths = extract_field_paths(value)
+            field_paths.extend(
+                [field_name + "." + sub_path for sub_path in sub_field_paths])
+        else:
+            field_paths.append(field_name)
+    return field_paths
 
 
 def reference_value_to_document(reference_value, client):
@@ -880,6 +896,11 @@ def pbs_for_set(document_path, document_data, option):
         or two ``Write`` protobuf instances for ``set()``.
     """
     transform_paths, actual_data = remove_server_timestamp(document_data)
+    if not actual_data and not transform_paths:
+        raise ValueError('There is only ServerTimeStamp object')
+    
+    update_values, field_paths = FieldPathHelper.to_field_paths(actual_data)
+    field_paths = canonicalize_field_paths(field_paths)
 
     update_pb = write_pb2.Write(
         update=document_pb2.Document(
@@ -895,7 +916,13 @@ def pbs_for_set(document_path, document_data, option):
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
         transform_pb = get_transform_pb(document_path, transform_paths)
-        write_pbs.append(transform_pb)
+        if actual_data:
+            write_pbs.append(transform_pb)
+        else:
+            write_pbs = transform_pb
+        
+            
+
 
     return write_pbs
 
@@ -937,12 +964,14 @@ def pbs_for_update(client, document_path, field_updates, option):
         or two ``Write`` protobuf instances for ``update()``.
     """
     import pdb
-    pdb.set_trace()
+#    pdb.set_trace()
     if option is None:
         # Default uses ``exists=True``.
-        option = client.write_option(create_if_missing=False)
+        option = client.write_option(exists=True)
 
     transform_paths, actual_updates = remove_server_timestamp(field_updates)
+    if not actual_data:
+        raise ValueError('There is only ServerTimeStamp object')
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_updates)
     field_paths = canonicalize_field_paths(field_paths)
 
