@@ -936,6 +936,8 @@ def pbs_for_update(client, document_path, field_updates, option):
         List[google.cloud.firestore_v1beta1.types.Write]: One
         or two ``Write`` protobuf instances for ``update()``.
     """
+    import pdb
+    pdb.set_trace()
     if option is None:
         # Default uses ``exists=True``.
         option = client.write_option(create_if_missing=False)

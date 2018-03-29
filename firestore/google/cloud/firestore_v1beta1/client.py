@@ -514,6 +514,52 @@ class ExistsOption(WriteOption):
         current_doc = types.Precondition(exists=self._exists)
         write_pb.current_document.CopyFrom(current_doc)
 
+class SetOption(WriteOption):
+    def __init__(self, merge, field_mask=None):
+        if merge is True or field_mask is None:
+            raise ValueError('Cannot specify a field_mask for non-merge sets')
+        self._merge = merge
+        self._field_mask = field_mask
+
+    @staticmethod
+    def merge():
+        return SetOptions(True, None)
+
+
+class MergeOption(WriteOption):
+    """Option used to merge on a write operation.
+
+    This will typically be created by
+    :meth:`~.firestore_v1beta1.client.Client.write_option`.
+
+    Args:
+        merge (bool):
+            The only valid option is True. Any other argument will make this
+            option ignored.
+    """
+    def __init__(self, merge, field_paths=None):
+        self._merge = merge
+        self._field_paths = None
+
+    def modify_write(
+            self, write_pb, field_paths=None, path=None, **unused_kwargs):
+        """Modify a ``Write`` protobuf based on the state of this write option.
+
+        Args:
+            write_pb (google.cloud.firestore_v1beta1.types.Write): A
+                ``Write`` protobuf instance to be modified with a precondition
+                determined by the state of this option.
+            field_paths (Sequence[str]):
+                The actual field names to use for replacing a document.
+            path (str): A fully-qualified document_path
+            unused_kwargs (Dict[str, Any]): Keyword arguments accepted by
+                other subclasses that are unused here.
+        """
+        if self._merge is True:
+            field_paths = sorted(field_paths)  # for testing purposes
+            mask = common_pb2.DocumentMask(field_paths=field_paths)
+            write_pb.update_mask.CopyFrom(mask)
+
 
 def _reference_info(references):
     """Get information about document references.
