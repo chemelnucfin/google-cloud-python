@@ -556,7 +556,10 @@ class MergeOption(WriteOption):
                 other subclasses that are unused here.
         """
         if self._merge is True:
-            field_paths = sorted(field_paths)  # for testing purposes
+            if self._field_paths is None:
+                field_paths = sorted(field_paths)  # for testing purposes
+            else:
+                field_paths = sorted(self._field_paths)
             mask = common_pb2.DocumentMask(field_paths=field_paths)
             write_pb.update_mask.CopyFrom(mask)
 

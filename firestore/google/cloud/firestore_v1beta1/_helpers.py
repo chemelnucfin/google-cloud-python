@@ -888,7 +888,7 @@ def pbs_for_set(document_path, document_data, option):
         ),
     )
     if option is not None:
-        option.modify_write(update_pb)
+        option.modify_write(update_pb, field_paths=field_paths)
 
     write_pbs = [update_pb]
     if transform_paths:
