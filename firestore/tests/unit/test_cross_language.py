@@ -27,6 +27,8 @@ class TestCrossLanguage(unittest.TestCase):
 
     def test_cross_language(self):
         filenames = sorted(glob.glob('tests/unit/testdata/*.textproto'))
+        count = 0
+        descs = []
         for test_filename in filenames:
             bytes = open(test_filename, 'r').read()
             test_proto = test_pb2.Test()
@@ -34,12 +36,19 @@ class TestCrossLanguage(unittest.TestCase):
             desc = '%s (%s)' % (
                 test_proto.description,
                 os.path.splitext(os.path.basename(test_filename))[0])
-            if test_proto.WhichOneof("test") == "get":
-                pass  # The Get tests assume a call to GetDocument, but Python
-                # calls BatchGetDocuments.
-                # TODO: make this work.
-            else:
+            try:
                 self.run_write_test(test_proto, desc)
+            except (AssertionError, Exception) as error:
+                import pdb
+#                pdb.set_trace()
+                count += 1
+                print(desc, test_proto)
+                print(error.args[0])
+                descs.append(desc)
+        for desc in descs:
+            print(desc)
+        print(str(count) + "/" + str(len(filenames)))
+        raise
 
     def run_write_test(self, test_proto, desc):
         from google.cloud.firestore_v1beta1.proto import firestore_pb2
@@ -59,11 +68,32 @@ class TestCrossLanguage(unittest.TestCase):
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
             call = functools.partial(doc.create, data)
+        elif kind == "get":
+            tp = test_proto.get
+            client, doc = self.setup(firestore_api, tp)
+            try:
+                field_paths = tp.field_paths
+            except AttributeError:
+                field_paths = None
+            try:
+                transaction = tp.transaction
+            except AttributeError:
+                transaction = None
+            
+            call = functools.partial(doc.get, field_paths, transaction)
+            try:
+                tp.is_error
+            except AttributeError:
+                return
         elif kind == "set":
             tp = test_proto.set
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
-            # TODO: call doc.set.
+            if tp.HasField("option"):
+                option = convert_set_option(tp.option)
+            else:
+                option = None
+            call = functools.partial(doc.set, data, option)
         elif kind == "update":
             tp = test_proto.update
             client, doc = self.setup(firestore_api, tp)
@@ -74,9 +104,22 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.update, data, option)
         elif kind == "update_paths":
-            # Python client doesn't have a way to call update with
-            # a list of field paths.
-            pass
+            return
+            # tp = test_proto.update_paths
+            # client, doc = self.setup(firestore_api, tp)
+            # field_paths = tp.field_paths
+            # paths = []
+            # for field_path in field_paths:
+            #     paths.append(field_path.field[0])
+            # try:
+            #     data = convert_data(json.loads(tp.json_values[0]))
+            # except:
+            #     data = None
+            # try:
+            #     request = tp.request
+            # except:
+            #     request = None
+            # call = functools.partial(doc.update, (paths, data, request))
         else:
             assert kind == "delete"
             tp = test_proto.delete
@@ -87,13 +130,11 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if call is None:
-            # TODO: remove this when we handle all kinds.
-            return
         if tp.is_error:
             # TODO: is there a subclass of Exception we can check for?
             with self.assertRaises(Exception):
                 call()
+            
         else:
             call()
             firestore_api.commit.assert_called_once_with(
@@ -132,6 +173,20 @@ def convert_data(v):
         return {k: convert_data(v2) for k, v2 in v.items()}
     else:
         return v
+
+
+def convert_set_option(option):
+    from google.cloud.firestore_v1beta1.client import MergeOption
+    from google.cloud.firestore_v1beta1 import _helpers
+    if isinstance(option, test_pb2.SetOption):
+        if option.all:
+            return MergeOption(merge=True, field_paths=None)
+        else:
+            fields = []
+            for field in option.fields:
+#                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
+                fields.append(_helpers.FieldPath(*field.field)) 
+            return MergeOption(merge=True, field_paths=fields)
 
 
 def convert_precondition(precond):

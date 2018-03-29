@@ -1442,13 +1442,13 @@ class Test_pbs_for_set(unittest.TestCase):
     def test_without_option(self):
         self._helper()
 
-    def test_with_option(self):
-        from google.cloud.firestore_v1beta1.proto import common_pb2
-        from google.cloud.firestore_v1beta1.client import CreateIfMissingOption
+    # def test_with_option(self):
+    #     from google.cloud.firestore_v1beta1.proto import common_pb2
+    #     from google.cloud.firestore_v1beta1.client import CreateIfMissingOption
 
-        option = CreateIfMissingOption(False)
-        precondition = common_pb2.Precondition(exists=True)
-        self._helper(option=option, current_document=precondition)
+    #     option = CreateIfMissingOption(False)
+    #     precondition = common_pb2.Precondition(exists=True)
+    #     self._helper(option=option, current_document=precondition)
 
     def test_update_and_transform(self):
         self._helper(do_transform=True)
