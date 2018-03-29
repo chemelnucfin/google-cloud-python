@@ -139,9 +139,9 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-9' in desc:
+        if 'set-8' in desc:
             import pdb
-#            pdb.set_trace()
+            pdb.set_trace()
         
         
         if tp.is_error:

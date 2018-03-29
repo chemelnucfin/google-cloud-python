@@ -896,8 +896,12 @@ def pbs_for_set(document_path, document_data, option):
         or two ``Write`` protobuf instances for ``set()``.
     """
     transform_paths, actual_data = remove_server_timestamp(document_data)
-    if not actual_data and not transform_paths:
-        raise ValueError('There is only ServerTimeStamp object')
+    if not actual_data:
+        if transform_paths:
+            write_pbs = transform_pb
+            return
+        else:
+            raise ValueError('There is only ServerTimeStamp object')
     
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_data)
     field_paths = canonicalize_field_paths(field_paths)
@@ -916,10 +920,7 @@ def pbs_for_set(document_path, document_data, option):
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
         transform_pb = get_transform_pb(document_path, transform_paths)
-        if actual_data:
-            write_pbs.append(transform_pb)
-        else:
-            write_pbs = transform_pb
+        write_pbs.append(transform_pb)
         
             
 
