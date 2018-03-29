@@ -27,7 +27,11 @@ class TestCrossLanguage(unittest.TestCase):
 
     def test_cross_language(self):
         filenames = sorted(glob.glob('tests/unit/testdata/*.textproto'))
-        failed = 0
+# <<<<<<< HEAD
+#         failed = 0
+# =======
+        count = 0
+# >>>>>>> temp
         descs = []
         for test_filename in filenames:
             bytes = open(test_filename, 'r').read()
@@ -37,15 +41,32 @@ class TestCrossLanguage(unittest.TestCase):
                 test_proto.description,
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
+                if "update-13" in desc:
+                    import pdb
+                    pdb.set_trace()
                 self.run_write_test(test_proto, desc)
-            except Exception:
-                failed += 1
-                # print(desc, test_proto)  # for debugging
-                # print(error.args[0])  # for debugging
+# <<<<<<< HEAD
+#             except Exception:
+#                 failed += 1
+#                 # print(desc, test_proto)  # for debugging
+#                 # print(error.args[0])  # for debugging
+#                 descs.append(desc)
+#         # for desc in descs:  # for debugging
+#             # print(desc)  # for debugging
+#         # print(str(failed) + "/" + str(len(filenames)))  # for debugging
+# =======
+            except (AssertionError, Exception) as error:
+                import pdb
+#                pdb.set_trace()
+                count += 1
+                print(desc, test_proto)
+                print(error.args[0])
                 descs.append(desc)
-        # for desc in descs:  # for debugging
-            # print(desc)  # for debugging
-        # print(str(failed) + "/" + str(len(filenames)))  # for debugging
+        for desc in descs:
+            print(desc)
+        print(str(count) + "/" + str(len(filenames)))
+        raise
+# >>>>>>> temp
 
     def run_write_test(self, test_proto, desc):
         from google.cloud.firestore_v1beta1.proto import firestore_pb2
@@ -65,10 +86,25 @@ class TestCrossLanguage(unittest.TestCase):
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
             call = functools.partial(doc.create, data)
+            # import pdb
+            # pdb.set_trace()
         elif kind == "get":
             tp = test_proto.get
             client, doc = self.setup(firestore_api, tp)
-            call = functools.partial(doc.get, None, None)
+# <<<<<<< HEAD
+#             call = functools.partial(doc.get, None, None)
+# =======
+            try:
+                field_paths = tp.field_paths
+            except AttributeError:
+                field_paths = None
+            try:
+                transaction = tp.transaction
+            except AttributeError:
+                transaction = None
+            
+            call = functools.partial(doc.get, field_paths, transaction)
+# >>>>>>> temp
             try:
                 tp.is_error
             except AttributeError:
@@ -78,10 +114,17 @@ class TestCrossLanguage(unittest.TestCase):
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
             if tp.HasField("option"):
-                merge = True
+# <<<<<<< HEAD
+#                 merge = True
+#             else:
+#                 merge = False
+#             call = functools.partial(doc.set, data, merge)
+# =======
+                option = convert_set_option(tp.option)
             else:
-                merge = False
-            call = functools.partial(doc.set, data, merge)
+                option = None
+            call = functools.partial(doc.set, data, option)
+# >>>>>>> temp
         elif kind == "update":
             tp = test_proto.update
             client, doc = self.setup(firestore_api, tp)
@@ -92,9 +135,28 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.update, data, option)
         elif kind == "update_paths":
-            # Python client doesn't have a way to call update with
-            # a list of field paths.
+# <<<<<<< HEAD
+#             # Python client doesn't have a way to call update with
+#             # a list of field paths.
+#             return
+# =======
             return
+            # tp = test_proto.update_paths
+            # client, doc = self.setup(firestore_api, tp)
+            # field_paths = tp.field_paths
+            # paths = []
+            # for field_path in field_paths:
+            #     paths.append(field_path.field[0])
+            # try:
+            #     data = convert_data(json.loads(tp.json_values[0]))
+            # except:
+            #     data = None
+            # try:
+            #     request = tp.request
+            # except:
+            #     request = None
+            # call = functools.partial(doc.update, (paths, data, request))
+# >>>>>>> temp
         else:
             assert kind == "delete"
             tp = test_proto.delete
@@ -109,6 +171,7 @@ class TestCrossLanguage(unittest.TestCase):
             # TODO: is there a subclass of Exception we can check for?
             with self.assertRaises(Exception):
                 call()
+            
         else:
             call()
             firestore_api.commit.assert_called_once_with(
@@ -147,6 +210,20 @@ def convert_data(v):
         return {k: convert_data(v2) for k, v2 in v.items()}
     else:
         return v
+
+
+def convert_set_option(option):
+    from google.cloud.firestore_v1beta1.client import MergeOption
+    from google.cloud.firestore_v1beta1 import _helpers
+    if isinstance(option, test_pb2.SetOption):
+        if option.all:
+            return MergeOption(merge=True, field_paths=None)
+        else:
+            fields = []
+            for field in option.fields:
+#                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
+                fields.append(_helpers.FieldPath(*field.field)) 
+            return MergeOption(merge=True, field_paths=fields)
 
 
 def convert_precondition(precond):

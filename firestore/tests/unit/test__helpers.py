@@ -1558,11 +1558,21 @@ class Test_pbs_for_set(unittest.TestCase):
             update_pb.current_document.CopyFrom(
                 common_pb2.Precondition(exists=exists))
 
-        if do_transform:
-            expected_pbs.append(
-                self._make_write_w_transform(document_path, fields=['butter']))
+# <<<<<<< HEAD
+#         if do_transform:
+#             expected_pbs.append(
+#                 self._make_write_w_transform(document_path, fields=['butter']))
 
-        self.assertEqual(write_pbs, expected_pbs)
+#         self.assertEqual(write_pbs, expected_pbs)
+# =======
+    # def test_with_option(self):
+    #     from google.cloud.firestore_v1beta1.proto import common_pb2
+    #     from google.cloud.firestore_v1beta1.client import CreateIfMissingOption
+
+    #     option = CreateIfMissingOption(False)
+    #     precondition = common_pb2.Precondition(exists=True)
+    #     self._helper(option=option, current_document=precondition)
+# >>>>>>> temp
 
     def test_without_merge(self):
         self._helper()

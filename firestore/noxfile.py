@@ -51,6 +51,8 @@ def default(session):
         '--cov-config=.coveragerc',
         '--cov-report=',
         '--cov-fail-under=97',
+        '-k',
+        'test_cross_language',
         os.path.join('tests', 'unit'),
         *session.posargs
     )
