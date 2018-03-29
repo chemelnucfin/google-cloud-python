@@ -37,15 +37,25 @@ class TestCrossLanguage(unittest.TestCase):
                 test_proto.description,
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
+                import pdb
+                kind = test_proto.WhichOneof("test")
+                
+                if "arrayunion" in desc or "arrayremove" in desc or kind == "query" or kind == "listen" or "all-transforms" in desc or "set-del" in desc:
+                    continue
+                    
+#                pdb.set_trace()
+
                 self.run_write_test(test_proto, desc)
-            except Exception:
+                
+            except (AssertionError, Exception) as error:
                 failed += 1
-                # print(desc, test_proto)  # for debugging
-                # print(error.args[0])  # for debugging
+                print(desc, test_proto)
+                print(error.args[0])
                 descs.append(desc)
-        # for desc in descs:  # for debugging
-            # print(desc)  # for debugging
-        # print(str(failed) + "/" + str(len(filenames)))  # for debugging
+        for desc in descs:
+            print(desc)
+        print(str(failed) + "/" + str(len(filenames)))
+        raise
 
     def run_write_test(self, test_proto, desc):
         from google.cloud.firestore_v1beta1.proto import firestore_pb2
@@ -68,7 +78,16 @@ class TestCrossLanguage(unittest.TestCase):
         elif kind == "get":
             tp = test_proto.get
             client, doc = self.setup(firestore_api, tp)
-            call = functools.partial(doc.get, None, None)
+            try:
+                field_paths = tp.field_paths
+            except AttributeError:
+                field_paths = None
+            try:
+                transaction = tp.transaction
+            except AttributeError:
+                transaction = None
+            
+            call = functools.partial(doc.get, field_paths, transaction)
             try:
                 tp.is_error
             except AttributeError:
@@ -78,10 +97,10 @@ class TestCrossLanguage(unittest.TestCase):
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
             if tp.HasField("option"):
-                merge = True
+                merge, exists = convert_set_option(tp.option)
             else:
-                merge = False
-            call = functools.partial(doc.set, data, merge)
+                merge, exists = None, None
+            call = functools.partial(doc.set, data, merge, exists)
         elif kind == "update":
             tp = test_proto.update
             client, doc = self.setup(firestore_api, tp)
@@ -95,6 +114,9 @@ class TestCrossLanguage(unittest.TestCase):
             # Python client doesn't have a way to call update with
             # a list of field paths.
             return
+        elif kind == "listen" or kind == "query":
+            return
+            
         else:
             assert kind == "delete"
             tp = test_proto.delete
@@ -109,6 +131,7 @@ class TestCrossLanguage(unittest.TestCase):
             # TODO: is there a subclass of Exception we can check for?
             with self.assertRaises(Exception):
                 call()
+            
         else:
             call()
             firestore_api.commit.assert_called_once_with(
@@ -147,6 +170,20 @@ def convert_data(v):
         return {k: convert_data(v2) for k, v2 in v.items()}
     else:
         return v
+
+
+def convert_set_option(option):
+    from google.cloud.firestore_v1beta1.client import MergeOption
+    from google.cloud.firestore_v1beta1 import _helpers
+    if isinstance(option, test_pb2.SetOption):
+        if option.all:
+            return True, None#MergeOption(merge=True, field_paths=None)
+        else:
+            fields = []
+            for field in option.fields:
+#                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
+                fields.append(_helpers.FieldPath(*field.field)) 
+            return fields, None#MergeOption(merge=True, field_paths=fields)
 
 
 def convert_precondition(precond):

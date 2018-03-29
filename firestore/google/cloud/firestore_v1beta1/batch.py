@@ -57,11 +57,11 @@ class WriteBatch(object):
             document_data (dict): Property names and values to use for
                 creating a document.
         """
-        write_pbs = _helpers.pbs_for_set(
-            reference._document_path, document_data, merge=False, exists=False)
-        self._add_write_pbs(write_pbs)
+        option = self._client.write_option(exists=False)
+        
+        self.set(reference, document_data, None, False)
 
-    def set(self, reference, document_data, merge=False):
+    def set(self, reference, document_data, merge, exists):
         """Add a "change" to replace a document.
 
         See
@@ -79,7 +79,7 @@ class WriteBatch(object):
                 of the document.
         """
         write_pbs = _helpers.pbs_for_set(
-            reference._document_path, document_data, merge=merge)
+            reference._document_path, document_data, merge, exists)
         self._add_write_pbs(write_pbs)
 
     def update(self, reference, field_updates, option=None):
