@@ -948,6 +948,27 @@ def canonicalize_field_paths(field_paths):
     return [path.to_api_repr() for path in field_paths]
 
 
+def parse_data_for_field_names(data):
+    field_paths = []
+    values = []
+    for key, value in six.iteritems(data):
+        if isinstance(value, dict):
+            sub_field_paths, sub_values = parse_data_for_field_names(value)
+            import pdb
+ #           pdb.set_trace()
+            keys = [key]
+            for sub_field_path in sub_field_paths:
+                keys.extend(sub_field_path)
+            field_paths.extend([keys])
+            values.extend([sub_value for sub_value in sub_values])
+        else:
+            field_paths.append([key])
+            values.append([value])
+    import pdb
+#    pdb.set_trace()
+    return field_paths, values
+
+
 def pbs_for_update(client, document_path, field_updates, option):
     """Make ``Write`` protobufs for ``update()`` methods.
 
@@ -977,6 +998,13 @@ def pbs_for_update(client, document_path, field_updates, option):
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_updates)
     field_paths = canonicalize_field_paths(field_paths)
 
+    # field_paths, values = parse_data_for_field_names(actual_updates)
+    # paths = []
+    # for field_path in field_paths:
+    #     paths.append(FieldPath(*field_path).to_api_repr())
+    # field_paths = paths
+
+#    field_paths = canonicalize_field_paths(field_paths)
     update_pb = write_pb2.Write(
         update=document_pb2.Document(
             name=document_path,
