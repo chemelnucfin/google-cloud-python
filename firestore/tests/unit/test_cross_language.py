@@ -129,7 +129,7 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'update-1' in desc:
+        if 'set-18' in desc:
             import pdb
 #            pdb.set_trace()
         
@@ -177,16 +177,17 @@ def convert_data(v):
     else:
         return v
 
+
 def convert_set_option(option):
     from google.cloud.firestore_v1beta1.client import MergeOption
+    from google.cloud.firestore_v1beta1 import _helpers
     if isinstance(option, test_pb2.SetOption):
-        try:
-            option.all
+        if option.all:
             return MergeOption(merge=True, field_paths=None)
-        except AttributeError:
+        else:
             fields = []
             for field in option.fields:
-                fields.append(field)
+                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
             return MergeOption(merge=True, field_paths=fields)
 
 
