@@ -355,6 +355,55 @@ class FieldPathHelper(object):
         self.add_field_path_end(
             field_path, value, parts[-1], curr_paths, to_update)
 
+    def add_value_at_field_path_set(self, field_path, value):
+        """Add a field path to the staged updates.
+
+        Also makes sure the field path is not ambiguous or contradictory with
+        any existing path in ``field_paths`` / ``unpacked_field_paths``.
+
+        To understand what will be failed, consider the following. If both
+        ``foo`` and ``foo.bar`` are paths, then the update from ``foo``
+        **should** supersede the update from ``foo.bar``. However, if the
+        caller expected the ``foo.bar`` update to occur as well, this could
+        cause unexpected behavior. Hence, that combination cause an error.
+
+        Args:
+            field_path (str): The field path being considered (it may just be
+                a field name).
+            value (Any): The value to update a field with.
+
+        Raises:
+            ValueError: If there is an ambiguity.
+        """
+        if isinstance(field_path, six.string_types):
+            field_path = FieldPath(field_path)
+        parts = field_path.parts
+        to_update = self.get_update_values(value)
+        curr_paths = self.unpacked_field_paths
+        for index, part in enumerate(parts[:-1]):
+            curr_paths = curr_paths.setdefault(part, {})
+            self.check_conflict(field_path, parts, index, curr_paths)
+            to_update = to_update.setdefault(part, {})
+
+        self.add_field_path_end(
+            field_path, value, parts[-1], curr_paths, to_update)
+        
+
+    def parse_set(self):
+        """Parse the ``field_updates`` into update values and field paths.
+
+        Returns:
+            Tuple[dict, List[str, ...]]: A pair of
+
+            * The true value dictionary to use for updates (may differ
+              from ``field_updates`` after field paths are "unpacked").
+            * The list of field paths to send (for updates and deletes).
+        """
+        for key, value in six.iteritems(self.field_updates):
+            self.add_value_at_field_path_set(key, value)
+
+        return self.update_values, self.field_paths
+
     def parse(self):
         """Parse the ``field_updates`` into update values and field paths.
 
@@ -390,6 +439,25 @@ class FieldPathHelper(object):
         helper = cls(field_updates)
         return helper.parse()
 
+    @classmethod
+    def to_field_paths_set(cls, field_updates):
+        """Convert field names and paths for usage in a request.
+
+        Also supports field deletes.
+
+        Args:
+            field_updates (dict): Field names or paths to update and values
+                to update with.
+
+        Returns:
+            Tuple[dict, List[str, ...]]: A pair of
+
+            * The true value dictionary to use for updates (may differ
+              from ``field_updates`` after field paths are "unpacked").
+            * The list of field paths to send (for updates and deletes).
+        """
+        helper = cls(field_updates)
+        return helper.parse_set()
 
 class ReadAfterWriteError(Exception):
     """Raised when a read is attempted after a write.
@@ -932,7 +1000,7 @@ def pbs_for_set(document_path, document_data, option):
         else:
             raise ValueError('There is only ServerTimeStamp object')
     
-    update_values, field_paths = FieldPathHelper.to_field_paths(actual_data)
+    update_values, field_paths = FieldPathHelper.to_field_paths_set(actual_data)
     field_paths = canonicalize_field_paths(field_paths)
 
     fields = encode_dict(actual_data)
