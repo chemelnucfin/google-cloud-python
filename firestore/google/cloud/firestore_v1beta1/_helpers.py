@@ -846,13 +846,15 @@ def remove_server_timestamp(document_data, paths=None):
         elif value is constants.SERVER_TIMESTAMP:
             field_paths.append(field_name)
         else:
-            actual_data[field_name] = value            
-            # for path in paths:
-            #     if path and field_name in path[0] or paths is None:
-            #         import pdb
-            #         pdb.set_trace()
-            #         actual_data[field_name] = value
-
+#            actual_data[field_name] = value
+            if paths is not None:
+                for path in paths:
+                    if path and field_name in path[0]:
+                        # import pdb
+                        # pdb.set_trace()
+                        actual_data[field_name] = value
+            else:
+                actual_data[field_name] = value
     if field_paths:
         return field_paths, actual_data
     else:
