@@ -436,7 +436,7 @@ def verify_path(path, is_collection):
             raise ValueError(msg)
 
 
-def encode_value(value):
+def encode_value(value, field_paths=None):
     """Converts a native Python value into a Firestore protobuf ``Value``.
 
     Args:
@@ -489,7 +489,9 @@ def encode_value(value):
         return document_pb2.Value(array_value=value_pb)
 
     if isinstance(value, dict):
-        value_dict = encode_dict(value)
+        if field_paths:
+            field_paths = field_paths[1:]
+        value_dict = encode_dict(value, field_paths)
         value_pb = document_pb2.MapValue(fields=value_dict)
         return document_pb2.Value(map_value=value_pb)
 
@@ -498,7 +500,7 @@ def encode_value(value):
         'Invalid type', type(value))
 
 
-def encode_dict(values_dict):
+def encode_dict(values_dict, field_paths=None):
     """Encode a dictionary into protobuf ``Value``-s.
 
     Args:
@@ -509,10 +511,21 @@ def encode_dict(values_dict):
         dictionary of string keys and ``Value`` protobufs as dictionary
         values.
     """
-    return {
-        key: encode_value(value)
-        for key, value in six.iteritems(values_dict)
-    }
+    if field_paths is None:
+        return {
+            key: encode_value(value)
+            for key, value in six.iteritems(values_dict)
+        }
+    else:
+        import pdb
+        pdb.set_trace()
+        values = {}
+        field_paths = [field_path.split(".") for field_path in field_paths]
+        for key, value in six.iteritems(values_dict):
+            for field_path in field_paths:
+                if field_path[0] == key:
+                    values[key] = encode_value(value, field_path)
+        return values
 
 
 def extract_field_paths(update_data):
@@ -831,10 +844,9 @@ def remove_server_timestamp(document_data, paths=None):
     field_paths = []
     actual_data = {}
     if paths:
-        paths = [path.split(".") for path in paths]
+        split_paths = [path.split(".") for path in paths]
     for field_name, value in six.iteritems(document_data):
         if isinstance(value, dict):
-            
             sub_field_paths, sub_data = remove_server_timestamp(value)
             field_paths.extend(
                 get_field_path([field_name, sub_path])
@@ -924,8 +936,6 @@ def pbs_for_set(document_path, document_data, option):
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_data)
     field_paths = canonicalize_field_paths(field_paths)
 
-
-
     fields = encode_dict(actual_data)
     update_pb = write_pb2.Write(
         update=document_pb2.Document(
@@ -939,7 +949,23 @@ def pbs_for_set(document_path, document_data, option):
         import pdb
 #        pdb.set_trace()
         field_paths = set(field_paths) - set(transform_paths)
+        fields = encode_dict(actual_data, option_field_paths)
+        update_pb = write_pb2.Write(
+            update=document_pb2.Document(
+                name=document_path,
+                fields=fields,
+            ),
+        )
         option.modify_write(update_pb, field_paths=field_paths)
+    else:
+        fields = encode_dict(actual_data)
+        update_pb = write_pb2.Write(
+            update=document_pb2.Document(
+                name=document_path,
+                fields=fields,
+            ),
+        )
+        
 
     write_pbs = [update_pb]
     if transform_paths:
