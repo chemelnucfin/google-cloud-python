@@ -914,6 +914,11 @@ def pbs_for_set(document_path, document_data, option):
         ),
     )
     if option is not None:
+        field_paths, values = parse_data_for_field_names(actual_data)
+
+        import pdb
+        pdb.set_trace()
+        field_paths = [FieldPath(*field_path).to_api_repr() for field_path in field_paths]        
         option.modify_write(update_pb, field_paths=field_paths)
 
     write_pbs = [update_pb]
@@ -949,17 +954,18 @@ def canonicalize_field_paths(field_paths):
 
 
 def parse_data_for_field_names(data):
+    if not data:
+        return [], []
     field_paths = []
     values = []
     for key, value in six.iteritems(data):
         if isinstance(value, dict):
             sub_field_paths, sub_values = parse_data_for_field_names(value)
-            import pdb
- #           pdb.set_trace()
-            keys = [key]
+
             for sub_field_path in sub_field_paths:
+                keys = [key]                
                 keys.extend(sub_field_path)
-            field_paths.extend([keys])
+                field_paths.extend([keys])
             values.extend([sub_value for sub_value in sub_values])
         else:
             field_paths.append([key])
@@ -967,6 +973,9 @@ def parse_data_for_field_names(data):
     import pdb
 #    pdb.set_trace()
     return field_paths, values
+
+
+    
 
 
 def pbs_for_update(client, document_path, field_updates, option):
@@ -997,8 +1006,9 @@ def pbs_for_update(client, document_path, field_updates, option):
         raise ValueError('There is only ServerTimeStamp object')
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_updates)
     field_paths = canonicalize_field_paths(field_paths)
+    
 
-    # field_paths, values = parse_data_for_field_names(actual_updates)
+#    field_paths, values = parse_data_for_field_names(actual_updates)
     # paths = []
     # for field_path in field_paths:
     #     paths.append(FieldPath(*field_path).to_api_repr())

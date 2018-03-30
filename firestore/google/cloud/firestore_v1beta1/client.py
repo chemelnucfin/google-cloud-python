@@ -282,8 +282,8 @@ class Client(ClientWithProject):
             raise TypeError(_BAD_OPTION_ERR)
 
         name, value = kwargs.popitem()
-        if name == 'create_if_missing':
-            return CreateIfMissingOption(value)
+        if name == 'merge':
+            return MergeOption(value)
         elif name == 'last_update_time':
             return LastUpdateOption(value)
         elif name == 'exists':
@@ -514,6 +514,10 @@ class MergeOption(WriteOption):
             unused_kwargs (Dict[str, Any]): Keyword arguments accepted by
                 other subclasses that are unused here.
         """
+        import pdb
+#        pdb.set_trace()
+
+        actual_values = field_paths
         if self._merge is True:
             if self._field_paths is None:
                 field_paths = sorted(field_paths)  # for testing purposes
