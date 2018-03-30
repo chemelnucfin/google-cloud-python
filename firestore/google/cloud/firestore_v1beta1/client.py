@@ -498,7 +498,10 @@ class MergeOption(WriteOption):
     """
     def __init__(self, merge, field_paths=None):
         self._merge = merge
-        self._field_paths = field_paths
+        if field_paths:
+            self._field_paths = sorted(set(field_paths))
+        else:
+            self._field_paths = None
 
     def modify_write(
             self, write_pb, field_paths=None, path=None, **unused_kwargs):
@@ -514,13 +517,14 @@ class MergeOption(WriteOption):
             unused_kwargs (Dict[str, Any]): Keyword arguments accepted by
                 other subclasses that are unused here.
         """
-        actual_values = field_paths
+        field_paths = set(field_paths)
         if self._merge is True:
             if self._field_paths is None:
-                field_paths = sorted(field_paths)  # for testing purposes
+                field_paths = field_paths.intersection(field_paths)  # for testing purposes
             else:
-                field_paths = sorted(self._field_paths)
-            mask = common_pb2.DocumentMask(field_paths=field_paths)
+                field_paths = field_paths.intersection(self._field_paths)
+            field_paths 
+            mask = common_pb2.DocumentMask(field_paths=sorted(field_paths))
             write_pb.update_mask.CopyFrom(mask)
 
 

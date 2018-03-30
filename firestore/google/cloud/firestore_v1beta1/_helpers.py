@@ -784,7 +784,7 @@ def get_doc_id(document_pb, expected_prefix):
     return document_id
 
 
-def remove_server_timestamp(document_data):
+def remove_server_timestamp(document_data, paths=None):
     """Remove all server timestamp sentinel values from data.
 
     If the data is nested, for example:
@@ -830,20 +830,28 @@ def remove_server_timestamp(document_data):
     """
     field_paths = []
     actual_data = {}
+    if paths:
+        paths = [path.split(".") for path in paths]
     for field_name, value in six.iteritems(document_data):
         if isinstance(value, dict):
+            
             sub_field_paths, sub_data = remove_server_timestamp(value)
             field_paths.extend(
                 get_field_path([field_name, sub_path])
                 for sub_path in sub_field_paths
             )
             if sub_data:
-                # Only add a key to ``actual_data`` if there is data.
+                # Only add a key to ``actual_data`` if there is data
                 actual_data[field_name] = sub_data
         elif value is constants.SERVER_TIMESTAMP:
             field_paths.append(field_name)
         else:
-            actual_data[field_name] = value
+            actual_data[field_name] = value            
+            # for path in paths:
+            #     if path and field_name in path[0] or paths is None:
+            #         import pdb
+            #         pdb.set_trace()
+            #         actual_data[field_name] = value
 
     if field_paths:
         return field_paths, actual_data
@@ -895,7 +903,14 @@ def pbs_for_set(document_path, document_data, option):
         List[google.cloud.firestore_v1beta1.types.Write]: One
         or two ``Write`` protobuf instances for ``set()``.
     """
-    transform_paths, actual_data = remove_server_timestamp(document_data)
+    option_field_paths = None    
+    if option is not None:
+        try:
+            option_field_paths = option._field_paths
+        except AttributeError:
+            pass
+
+    transform_paths, actual_data = remove_server_timestamp(document_data, option_field_paths)
     if not actual_data:
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)            
@@ -907,15 +922,21 @@ def pbs_for_set(document_path, document_data, option):
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_data)
     field_paths = canonicalize_field_paths(field_paths)
 
+
+
+    fields = encode_dict(actual_data)
     update_pb = write_pb2.Write(
         update=document_pb2.Document(
             name=document_path,
-            fields=encode_dict(actual_data),
+            fields=fields,
         ),
     )
     if option is not None:
         field_paths, values = parse_data_for_field_names(actual_data)
-        field_paths = [FieldPath(*field_path).to_api_repr() for field_path in field_paths]        
+        field_paths = [FieldPath(*field_path).to_api_repr() for field_path in field_paths]
+        import pdb
+#        pdb.set_trace()
+        field_paths = set(field_paths) - set(transform_paths)
         option.modify_write(update_pb, field_paths=field_paths)
 
     write_pbs = [update_pb]
@@ -972,8 +993,6 @@ def parse_data_for_field_names(data):
     return field_paths, values
 
 
-    
-
 
 def pbs_for_update(client, document_path, field_updates, option):
     """Make ``Write`` protobufs for ``update()`` methods.
@@ -1003,19 +1022,12 @@ def pbs_for_update(client, document_path, field_updates, option):
         raise ValueError('There is only ServerTimeStamp object')
     update_values, field_paths = FieldPathHelper.to_field_paths(actual_updates)
     field_paths = canonicalize_field_paths(field_paths)
-    
+    fields = encode_dict(update_values)
 
-#    field_paths, values = parse_data_for_field_names(actual_updates)
-    # paths = []
-    # for field_path in field_paths:
-    #     paths.append(FieldPath(*field_path).to_api_repr())
-    # field_paths = paths
-
-#    field_paths = canonicalize_field_paths(field_paths)
     update_pb = write_pb2.Write(
         update=document_pb2.Document(
             name=document_path,
-            fields=encode_dict(update_values),
+            fields=fields,
         ),
         # Sort field_paths just for comparison in tests.
         update_mask=common_pb2.DocumentMask(field_paths=sorted(field_paths)),
