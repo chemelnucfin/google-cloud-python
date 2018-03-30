@@ -514,9 +514,6 @@ class MergeOption(WriteOption):
             unused_kwargs (Dict[str, Any]): Keyword arguments accepted by
                 other subclasses that are unused here.
         """
-        import pdb
-#        pdb.set_trace()
-
         actual_values = field_paths
         if self._merge is True:
             if self._field_paths is None:

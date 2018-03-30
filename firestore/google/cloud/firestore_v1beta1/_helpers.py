@@ -915,9 +915,6 @@ def pbs_for_set(document_path, document_data, option):
     )
     if option is not None:
         field_paths, values = parse_data_for_field_names(actual_data)
-
-        import pdb
-        pdb.set_trace()
         field_paths = [FieldPath(*field_path).to_api_repr() for field_path in field_paths]        
         option.modify_write(update_pb, field_paths=field_paths)
 

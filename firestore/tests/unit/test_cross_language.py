@@ -38,12 +38,6 @@ class TestCrossLanguage(unittest.TestCase):
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
                 self.run_write_test(test_proto, desc)
-            # except TypeError:
-            #     import pdb
-            #     pdb.set_trace()
-            # except ValueError:
-            #     import pdb
-            #     pdb.set_trace()
             except (AssertionError, Exception) as error:
                 import pdb
 #                pdb.set_trace()
@@ -125,10 +119,6 @@ class TestCrossLanguage(unittest.TestCase):
             except:
                 request = None
             call = functools.partial(doc.update, (paths, data, request))
-#            except Exception:
-#                import pdb
-#                pdb.set_trace()
-                
         else:
             assert kind == "delete"
             tp = test_proto.delete
@@ -141,8 +131,7 @@ class TestCrossLanguage(unittest.TestCase):
 
         if 'update-1' in desc:
             import pdb
-            pdb.set_trace()
-        
+#            pdb.set_trace()
         
         if tp.is_error:
             # TODO: is there a subclass of Exception we can check for?
@@ -189,33 +178,17 @@ def convert_data(v):
         return v
 
 def convert_set_option(option):
-    import pdb
-#    from google.cloud.firestore_v1beta1 import test_pb2
     from google.cloud.firestore_v1beta1.client import MergeOption
-#    from google.cloud.firestore_v1beta1 import Set
     if isinstance(option, test_pb2.SetOption):
         try:
             option.all
             return MergeOption(merge=True, field_paths=None)
         except AttributeError:
             fields = []
-            import pdb
-            pdb.set_trace()
-            
             for field in option.fields:
                 fields.append(field)
             return MergeOption(merge=True, field_paths=fields)
-    import pdb
-    pdb.set_trace()
 
-
-#    return MergeOption(merge=True)
-#     if isinstance(option, test_pb2.SetOption):
-
-#     else:
-#         import pdb
-# #        pdb.set_trace()
-    
 
 def convert_precondition(precond):
     from google.cloud.firestore_v1beta1 import Client
