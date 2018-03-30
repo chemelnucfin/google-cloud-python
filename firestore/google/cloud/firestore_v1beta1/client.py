@@ -498,7 +498,7 @@ class MergeOption(WriteOption):
     """
     def __init__(self, merge, field_paths=None):
         self._merge = merge
-        self._field_paths = None
+        self._field_paths = field_paths
 
     def modify_write(
             self, write_pb, field_paths=None, path=None, **unused_kwargs):
