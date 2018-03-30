@@ -343,7 +343,7 @@ class FieldPathHelper(object):
             ValueError: If there is an ambiguity.
         """
         if isinstance(field_path, six.string_types):
-            field_path = FieldPath(field_path)
+            field_path = FieldPath.from_string(field_path)
         parts = field_path.parts
         to_update = self.get_update_values(value)
         curr_paths = self.unpacked_field_paths
@@ -518,7 +518,6 @@ def encode_dict(values_dict, field_paths=None):
         }
     else:
         import pdb
-        pdb.set_trace()
         values = {}
         field_paths = [field_path.split(".") for field_path in field_paths]
         for key, value in six.iteritems(values_dict):
