@@ -104,21 +104,22 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.update, data, option)
         elif kind == "update_paths":
-            tp = test_proto.update_paths
-            client, doc = self.setup(firestore_api, tp)
-            field_paths = tp.field_paths
-            paths = []
-            for field_path in field_paths:
-                paths.append(field_path.field[0])
-            try:
-                data = convert_data(json.loads(tp.json_values[0]))
-            except:
-                data = None
-            try:
-                request = tp.request
-            except:
-                request = None
-            call = functools.partial(doc.update, (paths, data, request))
+            return
+            # tp = test_proto.update_paths
+            # client, doc = self.setup(firestore_api, tp)
+            # field_paths = tp.field_paths
+            # paths = []
+            # for field_path in field_paths:
+            #     paths.append(field_path.field[0])
+            # try:
+            #     data = convert_data(json.loads(tp.json_values[0]))
+            # except:
+            #     data = None
+            # try:
+            #     request = tp.request
+            # except:
+            #     request = None
+            # call = functools.partial(doc.update, (paths, data, request))
         else:
             assert kind == "delete"
             tp = test_proto.delete
@@ -129,7 +130,7 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-19' in desc:
+        if 'set-23' in desc:
             import pdb
             pdb.set_trace()
         if tp.is_error:

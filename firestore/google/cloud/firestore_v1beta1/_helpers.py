@@ -131,6 +131,13 @@ class FieldPath(object):
                 raise ValueError(error)
         self.parts = tuple(parts)
 
+    def __repr__(self):
+        paths = ""
+        for part in self.parts:
+            paths += "'" + part + "',"
+        paths = paths[:-1]
+        return 'FieldPath({})'.format(paths)
+
     @staticmethod
     def from_string(string):
         """ Creates a FieldPath from a unicode string representation.
@@ -1016,10 +1023,10 @@ def pbs_for_set(document_path, document_data, option):
                 import pdb
 #                pdb.set_trace()
                 for field in option_field_paths:
-                    extracts = extract_field_paths(document_data)
+                    field_paths = extract_field_paths(document_data)
                     inside = False
-                    for extract in extracts:
-                        if field.parts[0] in tuple(extract):
+                    for field_path in field_paths:
+                        if field.parts[0] in tuple(field_path):
                             inside = True
                             break
                     if not inside:
@@ -1034,6 +1041,8 @@ def pbs_for_set(document_path, document_data, option):
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)            
             write_pbs = [transform_pb]
+            import pdb
+            pdb.set_trace()
             return write_pbs
         else:
             raise ValueError('There is only ServerTimeStamp object.')
@@ -1074,6 +1083,9 @@ def pbs_for_set(document_path, document_data, option):
     if transform_paths:
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
+        import pdb
+        pdb.set_trace()
+        transform_paths = set(transform_paths) - set(field_paths)
         transform_pb = get_transform_pb(document_path, transform_paths)
         write_pbs.append(transform_pb)
         
