@@ -988,6 +988,10 @@ def pbs_for_set(document_path, document_data, option):
     if option is not None:
         try:
             option_field_paths = option._field_paths
+            if option_field_paths:
+                for field in option_field_paths:
+                    if field not in extract_field_paths(document_data):
+                        raise ValueError('Merge field is not in data.')
         except AttributeError:
             pass
 
@@ -998,7 +1002,7 @@ def pbs_for_set(document_path, document_data, option):
             write_pbs = [transform_pb]
             return write_pbs
         else:
-            raise ValueError('There is only ServerTimeStamp object')
+            raise ValueError('There is only ServerTimeStamp object.')
     
     update_values, field_paths = FieldPathHelper.to_field_paths_set(actual_data)
     field_paths = canonicalize_field_paths(field_paths)
