@@ -557,8 +557,8 @@ def encode_value(value, field_paths=None):
         return document_pb2.Value(array_value=value_pb)
 
     if isinstance(value, dict):
-        if field_paths:
-            field_paths = field_paths[1:]
+        if field_paths and field_paths.parts[1:]:
+            field_paths = [FieldPath(*field_paths.parts[1:])]
         value_dict = encode_dict(value, field_paths)
         value_pb = document_pb2.MapValue(fields=value_dict)
         return document_pb2.Value(map_value=value_pb)
@@ -585,12 +585,10 @@ def encode_dict(values_dict, field_paths=None):
             for key, value in six.iteritems(values_dict)
         }
     else:
-        import pdb
-#        pdb.set_trace()
         values = {}
         for key, value in six.iteritems(values_dict):
             for field_path in field_paths:
-                if ".".join(field_path.parts) == key:
+                if field_path.parts[0] == key:
                     values[key] = encode_value(value, field_path)
         return values
 
@@ -612,7 +610,7 @@ def extract_old_field_paths(update_data):
 
 def extract_field_paths(update_data):
     import pdb
-    pdb.set_trace()
+#    pdb.set_trace()
     field_paths = []
     for field_name, value in six.iteritems(update_data):
 
@@ -1009,12 +1007,11 @@ def pbs_for_set(document_path, document_data, option):
 #                pdb.set_trace()
                 for field in option_field_paths:
                     extracts = extract_field_paths(document_data)
-                    
-#                    extract_parts = [FieldPath(*extract.split(".") for extract in extracts]
                     inside = False
                     for extract in extracts:
-                        if field.parts == tuple(extract):
+                        if field.parts[0] in tuple(extract):
                             inside = True
+                            break
                     if not inside:
                         import pdb
                         pdb.set_trace()

@@ -519,9 +519,7 @@ class MergeOption(WriteOption):
         """
         field_paths = set(field_paths)
         if self._merge is True:
-            if self._field_paths is None:
-                field_paths = field_paths.intersection(field_paths)  # for testing purposes
-            else:
+            if self._field_paths:
                 field_paths = field_paths.intersection(self._field_paths)
             field_paths = [field_path.to_api_repr() for field_path in field_paths]
             mask = common_pb2.DocumentMask(field_paths=sorted(field_paths))
