@@ -557,9 +557,12 @@ def encode_value(value, field_paths=None):
         return document_pb2.Value(array_value=value_pb)
 
     if isinstance(value, dict):
-        if field_paths and field_paths.parts[1:]:
-            field_paths = [FieldPath(*field_paths.parts[1:])]
-        value_dict = encode_dict(value, field_paths)
+        paths = []
+        if field_paths:
+            for field_path in field_paths:
+                if field_path and field_path.parts[1:]:
+                    paths.append(FieldPath(*field_path.parts[1:]))
+        value_dict = encode_dict(value, paths)
         value_pb = document_pb2.MapValue(fields=value_dict)
         return document_pb2.Value(map_value=value_pb)
 
@@ -579,7 +582,7 @@ def encode_dict(values_dict, field_paths=None):
         dictionary of string keys and ``Value`` protobufs as dictionary
         values.
     """
-    if field_paths is None:
+    if not field_paths:
         return {
             key: encode_value(value)
             for key, value in six.iteritems(values_dict)
@@ -589,7 +592,7 @@ def encode_dict(values_dict, field_paths=None):
         for key, value in six.iteritems(values_dict):
             for field_path in field_paths:
                 if field_path.parts[0] == key:
-                    values[key] = encode_value(value, field_path)
+                    values[key] = encode_value(value, [field_path])
         return values
 
 

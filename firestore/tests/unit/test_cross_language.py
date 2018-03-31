@@ -132,12 +132,11 @@ class TestCrossLanguage(unittest.TestCase):
         if 'set-19' in desc:
             import pdb
             pdb.set_trace()
-
         if tp.is_error:
             # TODO: is there a subclass of Exception we can check for?
             with self.assertRaises(Exception):
                 call()
-
+            
         else:
             call()
             firestore_api.commit.assert_called_once_with(
