@@ -129,7 +129,7 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-20' in desc:
+        if 'set-17' in desc:
             import pdb
             pdb.set_trace()
         
@@ -187,7 +187,8 @@ def convert_set_option(option):
         else:
             fields = []
             for field in option.fields:
-                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
+#                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
+                fields.append(_helpers.FieldPath(*field.field)) 
             return MergeOption(merge=True, field_paths=fields)
 
 

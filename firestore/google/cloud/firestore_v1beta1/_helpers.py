@@ -586,11 +586,11 @@ def encode_dict(values_dict, field_paths=None):
         }
     else:
         import pdb
+        pdb.set_trace()
         values = {}
-        field_paths = [field_path.split(".") for field_path in field_paths]
         for key, value in six.iteritems(values_dict):
             for field_path in field_paths:
-                if field_path[0] == key:
+                if ".".join(field_path.parts) == key:
                     values[key] = encode_value(value, field_path)
         return values
 
@@ -910,8 +910,8 @@ def remove_server_timestamp(document_data, paths=None):
     """
     field_paths = []
     actual_data = {}
-    if paths:
-        split_paths = [path.split(".") for path in paths]
+    # if paths:
+    #     split_paths = [path.split(".") for path in paths]
     for field_name, value in six.iteritems(document_data):
         if isinstance(value, dict):
             sub_field_paths, sub_data = remove_server_timestamp(value)
@@ -928,7 +928,7 @@ def remove_server_timestamp(document_data, paths=None):
 #            actual_data[field_name] = value
             if paths is not None:
                 for path in paths:
-                    if path and field_name in path[0]:
+                    if path and field_name in path.parts[0]:
                         # import pdb
                         # pdb.set_trace()
                         actual_data[field_name] = value
@@ -990,15 +990,14 @@ def pbs_for_set(document_path, document_data, option):
             option_field_paths = option._field_paths
             if option_field_paths:
                 import pdb
-                pdb.set_trace()
+#                pdb.set_trace()
                 for field in option_field_paths:
                     extracts = extract_field_paths(document_data)
                     
-                    extract_parts = [FieldPath(*extract.split(".")) for extract in extracts]
-                    field = FieldPath(*field.split("."))
+#                    extract_parts = [FieldPath(*extract.split(".") for extract in extracts]
                     inside = False
-                    for extract_part in extract_parts:
-                        if field.parts[0] == extract_part.parts[0]:
+                    for extract in extracts:
+                        if field.parts[0] == extract:
                             inside = True
                     if not inside:
                         raise ValueError('Merge field is not in data.')
@@ -1018,17 +1017,15 @@ def pbs_for_set(document_path, document_data, option):
     field_paths = canonicalize_field_paths(field_paths)
 
     fields = encode_dict(actual_data)
-    update_pb = write_pb2.Write(
-        update=document_pb2.Document(
-            name=document_path,
-            fields=fields,
-        ),
-    )
+    # update_pb = write_pb2.Write(
+    #     update=document_pb2.Document(
+    #         name=document_path,
+    #         fields=fields,
+    #     ),
+    # )
     if option is not None:
         field_paths, values = parse_data_for_field_names(actual_data)
-        field_paths = [FieldPath(*field_path).to_api_repr() for field_path in field_paths]
-        import pdb
-#        pdb.set_trace()
+        field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
         fields = encode_dict(actual_data, option_field_paths)
         update_pb = write_pb2.Write(

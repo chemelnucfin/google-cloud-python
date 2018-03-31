@@ -523,7 +523,7 @@ class MergeOption(WriteOption):
                 field_paths = field_paths.intersection(field_paths)  # for testing purposes
             else:
                 field_paths = field_paths.intersection(self._field_paths)
-            field_paths 
+            field_paths = [field_path.to_api_repr() for field_path in field_paths]
             mask = common_pb2.DocumentMask(field_paths=sorted(field_paths))
             write_pb.update_mask.CopyFrom(mask)
 
