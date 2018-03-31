@@ -586,7 +586,7 @@ def encode_dict(values_dict, field_paths=None):
         }
     else:
         import pdb
-        pdb.set_trace()
+#        pdb.set_trace()
         values = {}
         for key, value in six.iteritems(values_dict):
             for field_path in field_paths:
@@ -595,7 +595,7 @@ def encode_dict(values_dict, field_paths=None):
         return values
 
 
-def extract_field_paths(update_data):
+def extract_old_field_paths(update_data):
     field_paths = []
     for field_name, value in six.iteritems(update_data):
         match = re.match(FieldPath.simple_field_name, field_name)
@@ -610,6 +610,22 @@ def extract_field_paths(update_data):
             field_paths.append(field_name)
     return field_paths
 
+def extract_field_paths(update_data):
+    import pdb
+    pdb.set_trace()
+    field_paths = []
+    for field_name, value in six.iteritems(update_data):
+
+        if isinstance(value, dict):
+            sub_field_paths = extract_field_paths(value)
+            for sub_path in sub_field_paths:
+                paths = [field_name]                
+                paths.extend(sub_path)
+                field_paths.append(paths)                
+        else:
+            paths = [field_name]
+            field_paths.append(paths)
+    return field_paths
 
 def reference_value_to_document(reference_value, client):
     """Convert a reference value string to a document.
@@ -997,9 +1013,11 @@ def pbs_for_set(document_path, document_data, option):
 #                    extract_parts = [FieldPath(*extract.split(".") for extract in extracts]
                     inside = False
                     for extract in extracts:
-                        if field.parts[0] == extract:
+                        if field.parts == tuple(extract):
                             inside = True
                     if not inside:
+                        import pdb
+                        pdb.set_trace()
                         raise ValueError('Merge field is not in data.')
         except AttributeError:
             pass
