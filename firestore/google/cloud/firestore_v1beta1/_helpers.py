@@ -178,6 +178,13 @@ class FieldPath(object):
             return self.parts == other.parts
         return NotImplemented
 
+    def __lt__(self, other):
+        if isinstance(other, FieldPath):
+            return self.to_api_repr() < other.to_api_repr()
+        elif isinstance(other, six.string_type):
+            return self.to_api_repr() < other
+        return NotImplemented
+
 
 class FieldPathHelper(object):
     """Helper to convert field names and paths for usage in a request.
