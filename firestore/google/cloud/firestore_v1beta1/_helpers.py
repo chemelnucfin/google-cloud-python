@@ -989,8 +989,17 @@ def pbs_for_set(document_path, document_data, option):
         try:
             option_field_paths = option._field_paths
             if option_field_paths:
+                import pdb
+                pdb.set_trace()
                 for field in option_field_paths:
-                    if field not in extract_field_paths(document_data):
+                    extracts = extract_field_paths(document_data)
+                    extract_parts = [FieldPath(extract) for extract in extracts]
+                    field = FieldPath(field)
+                    inside = False
+                    for extract_part in extract_parts:
+                        if field.parts[0] == extract_part.parts[0]:
+                            inside = True
+                    if not inside:
                         raise ValueError('Merge field is not in data.')
         except AttributeError:
             pass
