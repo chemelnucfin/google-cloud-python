@@ -194,6 +194,22 @@ class FieldPath(object):
             return self.to_api_repr() < other
         return NotImplemented
 
+    def common(self, other):
+        if self == other:
+            return self
+        if len(self.parts) > len(other.parts):
+            longer = self.parts
+            shorter = other.parts
+        else:
+            longer = other.parts
+            shorter = self.parts
+        for index, part in enumerate(shorter):
+            if part != longer[index]:
+                break
+        if index:
+            return FieldPath(*self.parts[:index])
+        
+
 
 class FieldPathHelper(object):
     """Helper to convert field names and paths for usage in a request.
@@ -1037,6 +1053,8 @@ def pbs_for_set(document_path, document_data, option):
                     field_paths = [FieldPath(*field_path) for field_path in field_paths]
                     inside = False
                     for field_path in field_paths:
+                        import pdb
+#                        pdb.set_trace()
                         if field.parts[0] in field_path.parts:
                             inside = True
                             break
@@ -1062,12 +1080,7 @@ def pbs_for_set(document_path, document_data, option):
     field_paths = canonicalize_field_paths(field_paths)
 
     fields = encode_dict(actual_data)
-    # update_pb = write_pb2.Write(
-    #     update=document_pb2.Document(
-    #         name=document_path,
-    #         fields=fields,
-    #     ),
-    # )
+
     if option is not None:
         field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
@@ -1095,7 +1108,7 @@ def pbs_for_set(document_path, document_data, option):
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
         import pdb
-        pdb.set_trace()
+#        pdb.set_trace()
         try:
             if option._field_paths:
                 for transform_path in transform_paths:
