@@ -130,9 +130,6 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-18' in desc:
-            import pdb
-            pdb.set_trace()
         if tp.is_error:
             # TODO: is there a subclass of Exception we can check for?
             with self.assertRaises(Exception):

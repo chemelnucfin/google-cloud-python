@@ -129,7 +129,6 @@ class FieldPath(object):
             if not isinstance(part, six.string_types) or not part:
                 error = 'One or more components is not a string or is empty.'
                 import pdb
-                pdb.set_trace()
                 raise ValueError(error)
         self.parts = tuple(parts)
 
@@ -1059,8 +1058,6 @@ def pbs_for_set(document_path, document_data, option):
                             inside = True
                             break
                     if not inside:
-                        import pdb
-                        pdb.set_trace()
                         raise ValueError('Merge field is not in data.')
         except AttributeError:
             pass
@@ -1070,8 +1067,6 @@ def pbs_for_set(document_path, document_data, option):
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)
             write_pbs = [transform_pb]
-            import pdb
-            pdb.set_trace()
             return write_pbs
         else:
             raise ValueError('There is only ServerTimeStamp object.')
@@ -1107,15 +1102,15 @@ def pbs_for_set(document_path, document_data, option):
     if transform_paths:
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
-        import pdb
-#        pdb.set_trace()
         try:
             if option._field_paths:
                 for transform_path in transform_paths:
                     if transform_path in option._field_paths:
-        #                transform_paths = set(transform_paths) - set(field_paths)
                         transform_pb = get_transform_pb(document_path, transform_paths)
                         write_pbs.append(transform_pb)
+            else:
+                transform_pb = get_transform_pb(document_path, transform_paths)                
+                write_pbs.append(transform_pb)
         except AttributeError:
             transform_pb = get_transform_pb(document_path, transform_paths)
             write_pbs.append(transform_pb)

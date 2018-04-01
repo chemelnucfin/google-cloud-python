@@ -520,8 +520,6 @@ class MergeOption(WriteOption):
         field_paths = set(field_paths)
         if self._merge is True:
             if self._field_paths:
-                import pdb
-                pdb.set_trace()
                 new_path = None
                 for field_path in field_paths:
                     ancestor = field_path.common(self._field_paths[0])
