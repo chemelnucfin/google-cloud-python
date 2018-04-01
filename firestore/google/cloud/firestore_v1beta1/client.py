@@ -519,48 +519,17 @@ class MergeOption(WriteOption):
         """
         field_paths = set(field_paths)
         if self._merge is True:
-            # for field_path in field_paths:
-            #     import pdb
-            #     # pdb.set_trace()
-            #     if field.parts[0] in field_path.parts:
-            #         inside = True
-            #         break
-
-            # h.g, [h.g, h.f] => h.g
-            # h, [h.g, h.f] => h
-
-            # h.g, [h.g, e, h.f, h.i] => h.g
-            
             if self._field_paths:
                 import pdb
                 pdb.set_trace()
-                new_paths = []
-                
-                for self_field_path in self._field_paths:
-                    for field_path in field_paths:
-                        common = field_path.common(self_field_path)
-                        if common:
-                            ancestor = common
-                            for new_path in new_paths:
-                                ancestor = ancestor.common(new_path)
-                            if ancestor:
-                                new_paths.append(ancestor)
-                            else:
-                                new_paths.append(common)
-                                
-                                    
-                        # if common:
-                        #     for new_path in new_paths:
-                        #         if common.common(new_path):
-                        #             new_paths.append(common)
-                field_paths = new_paths
-                # # new = []
-                # field_paths = field_paths.intersection(set(self._field_paths))
-                # for self_field_path in self._field_paths:
-                #     for field_paths in self_field_path:
-                #         if field_path in self._field_paths:
-                #             field_paths.append(field_path
-                #             field_paths = field_paths.intersection(self._field_paths)
+                new_path = None
+                for field_path in field_paths:
+                    ancestor = field_path.common(self._field_paths[0])
+                    if new_path and ancestor.parts > new_path.parts:
+                        new_path = ancestor
+                if not new_path:
+                    new_path = self._field_paths[0]
+                field_paths = [new_path]
             field_paths = list(set([field_path.to_api_repr() for field_path in field_paths]))
             mask = common_pb2.DocumentMask(field_paths=sorted(field_paths))
             write_pb.update_mask.CopyFrom(mask)
