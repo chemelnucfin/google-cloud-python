@@ -130,7 +130,7 @@ class TestCrossLanguage(unittest.TestCase):
                 option = None
             call = functools.partial(doc.delete, option)
 
-        if 'set-23' in desc:
+        if 'set-17' in desc:
             import pdb
             pdb.set_trace()
         if tp.is_error:

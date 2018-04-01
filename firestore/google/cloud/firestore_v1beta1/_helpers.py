@@ -128,6 +128,8 @@ class FieldPath(object):
         for part in parts:
             if not isinstance(part, six.string_types) or not part:
                 error = 'One or more components is not a string or is empty.'
+                import pdb
+                pdb.set_trace()
                 raise ValueError(error)
         self.parts = tuple(parts)
 
@@ -188,7 +190,7 @@ class FieldPath(object):
     def __lt__(self, other):
         if isinstance(other, FieldPath):
             return self.to_api_repr() < other.to_api_repr()
-        elif isinstance(other, six.string_type):
+        elif isinstance(other, six.string_types):
             return self.to_api_repr() < other
         return NotImplemented
 
@@ -946,15 +948,16 @@ def remove_server_timestamp(document_data, paths=None):
     for field_name, value in six.iteritems(document_data):
         if isinstance(value, dict):
             sub_field_paths, sub_data = remove_server_timestamp(value)
-            field_paths.extend(
-                get_field_path([field_name, sub_path])
-                for sub_path in sub_field_paths
-            )
+
+            for sub_path in sub_field_paths:
+                field_path = [field_name]                
+                field_path.extend(sub_path.parts)
+                field_paths.extend([FieldPath(*field_path)])
             if sub_data:
                 # Only add a key to ``actual_data`` if there is data
                 actual_data[field_name] = sub_data
         elif value is constants.SERVER_TIMESTAMP:
-            field_paths.append(field_name)
+            field_paths.append(FieldPath(field_name))
         else:
 #            actual_data[field_name] = value
             if paths is not None:
@@ -985,6 +988,13 @@ def get_transform_pb(document_path, transform_paths):
         google.cloud.firestore_v1beta1.types.Write: A
         ``Write`` protobuf instance for a document transform.
     """
+    new = []
+    for transform_path in transform_paths:
+        try:
+            new.append(transform_path.to_api_repr())
+        except AttributeError:
+            new.append(transform_path)
+    transform_paths = new
     return write_pb2.Write(
         transform=write_pb2.DocumentTransform(
             document=document_path,
@@ -1024,9 +1034,10 @@ def pbs_for_set(document_path, document_data, option):
 #                pdb.set_trace()
                 for field in option_field_paths:
                     field_paths = extract_field_paths(document_data)
+                    field_paths = [FieldPath(*field_path) for field_path in field_paths]
                     inside = False
                     for field_path in field_paths:
-                        if field.parts[0] in tuple(field_path):
+                        if field.parts[0] in field_path.parts:
                             inside = True
                             break
                     if not inside:
@@ -1039,7 +1050,7 @@ def pbs_for_set(document_path, document_data, option):
     transform_paths, actual_data = remove_server_timestamp(document_data, option_field_paths)
     if not actual_data:
         if transform_paths:
-            transform_pb = get_transform_pb(document_path, transform_paths)            
+            transform_pb = get_transform_pb(document_path, transform_paths)
             write_pbs = [transform_pb]
             import pdb
             pdb.set_trace()
@@ -1085,12 +1096,18 @@ def pbs_for_set(document_path, document_data, option):
         #       the ``transform_pb``.
         import pdb
         pdb.set_trace()
-        transform_paths = set(transform_paths) - set(field_paths)
-        transform_pb = get_transform_pb(document_path, transform_paths)
-        write_pbs.append(transform_pb)
-        
+        try:
+            if option._field_paths:
+                for transform_path in transform_paths:
+                    if transform_path in option._field_paths:
+        #                transform_paths = set(transform_paths) - set(field_paths)
+                        transform_pb = get_transform_pb(document_path, transform_paths)
+                        write_pbs.append(transform_pb)
+        except AttributeError:
+            transform_pb = get_transform_pb(document_path, transform_paths)
+            write_pbs.append(transform_pb)
             
-
+            pass
 
     return write_pbs
 
@@ -1182,6 +1199,7 @@ def pbs_for_update(client, document_path, field_updates, option):
     if transform_paths:
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
+        transform_paths = [transform_path.to_api_repr() for transform_path in transform_paths]
         transform_pb = get_transform_pb(document_path, transform_paths)
         write_pbs.append(transform_pb)
 
