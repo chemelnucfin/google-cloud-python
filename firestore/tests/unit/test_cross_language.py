@@ -41,9 +41,6 @@ class TestCrossLanguage(unittest.TestCase):
                 test_proto.description,
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
-                if "update-13" in desc:
-                    import pdb
-                    pdb.set_trace()
                 self.run_write_test(test_proto, desc)
 # <<<<<<< HEAD
 #             except Exception:
@@ -113,14 +110,24 @@ class TestCrossLanguage(unittest.TestCase):
             tp = test_proto.set
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
+            if (
+#                    "set-8" in desc or
+#                "set-16" in desc or
+#                "set-17" in desc or
+#                "set-18" in desc or
+#                "set-19" in desc or
+                "set-21" in desc or
+                "set-22" in desc or
+#                "set-23" in desc or
+                "set-24" in desc or
+                "set-25" in desc or
+                "set-26" in desc
+            ):
+                import pdb
+                pdb.set_trace()
+                
             if tp.HasField("option"):
-# <<<<<<< HEAD
-#                 merge = True
-#             else:
-#                 merge = False
-#             call = functools.partial(doc.set, data, merge)
-# =======
-                option = convert_set_option(tp.option)
+                option = convert_set_option(tp.option, data)
             else:
                 option = None
             call = functools.partial(doc.set, data, option)
@@ -212,18 +219,22 @@ def convert_data(v):
         return v
 
 
-def convert_set_option(option):
+def convert_set_option(option, data):
     from google.cloud.firestore_v1beta1.client import MergeOption
     from google.cloud.firestore_v1beta1 import _helpers
     if isinstance(option, test_pb2.SetOption):
         if option.all:
-            return MergeOption(merge=True, field_paths=None)
+            # import pdb
+            # pdb.set_trace()
+            field_paths = _helpers.extract_field_paths(data)
+            field_paths = [_helpers.FieldPath(*field_path) for field_path in field_paths]
+            return field_paths
         else:
             fields = []
             for field in option.fields:
 #                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
                 fields.append(_helpers.FieldPath(*field.field)) 
-            return MergeOption(merge=True, field_paths=fields)
+            return fields
 
 
 def convert_precondition(precond):
