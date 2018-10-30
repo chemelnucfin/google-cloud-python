@@ -1077,9 +1077,24 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
         or two ``Write`` protobuf instances for ``set()``.
     """
     merge_paths = merge
+    if not merge:
+        merge_paths = []
+
     field_paths = extract_field_paths(document_data)
     field_paths = [FieldPath(*field_path) for field_path in field_paths]
+        
+    for merge_path in merge_paths:
+        inside = False
+        for field_path in field_paths:
+            if merge_path.parts[0] in field_path.parts:
+                inside=True
+                break
+        if not inside:
+            raise ValueError('Merge field is not in data.')
+
     transform_paths, actual_data, field_paths = process_server_timestamp(document_data, True, field_paths)
+
+
     if not actual_data:
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)
