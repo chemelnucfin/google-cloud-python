@@ -926,11 +926,7 @@ def get_doc_id(document_pb, expected_prefix):
     return document_id
  
 
-# <<<<<<< HEAD
 def process_server_timestamp(document_data, split_on_dots=True, paths=None):
-# =======
-# def remove_server_timestamp(document_data, paths=None):
-#>>>>>>> temp
     """Remove all server timestamp sentinel values from data.
 
     If the data is nested, for example:
@@ -984,14 +980,14 @@ def process_server_timestamp(document_data, split_on_dots=True, paths=None):
     """
     transform_paths = []
     actual_data = {}
-    field_paths = []
+#    field_paths = []
     for field_name, value in six.iteritems(document_data):
-        if split_on_dots:
-            top_level_path = FieldPath(*field_name.split("."))
-        else:
-            top_level_path = FieldPath(field_name)
+        # if split_on_dots:
+        #     top_level_path = FieldPath(*field_name.split("."))
+        # else:
+        #     top_level_path = FieldPath(field_name)
         if isinstance(value, dict):
-            sub_transform_paths, sub_data, sub_field_paths = process_server_timestamp(value, False)
+            sub_transform_paths, sub_data, sub_field_paths = process_server_timestamp(value)
 
             for sub_transform_path in sub_transform_paths:
                 transform_path = FieldPath(field_name)                
@@ -1002,12 +998,12 @@ def process_server_timestamp(document_data, split_on_dots=True, paths=None):
             if sub_data:
                 # Only add a key to ``actual_data`` if there is data
                 actual_data[field_name] = sub_data
-                for sub_field_path in sub_field_paths:
-                    field_path = FieldPath(field_name)
-                    field_path.parts = field_path.parts + sub_field_path.parts
-                    field_paths.append(field_path)
+            #     for sub_field_path in sub_field_paths:
+            #         field_path = FieldPath(field_name)
+            #         field_path.parts = field_path.parts + sub_field_path.parts
+            #         field_paths.append(field_path)
         elif value is constants.SERVER_TIMESTAMP:
-            transform_paths.append(top_level_path)            
+            transform_paths.append(FieldPath(field_name))
         else:
             if paths is not None:
                 for path in paths:
@@ -1017,10 +1013,10 @@ def process_server_timestamp(document_data, split_on_dots=True, paths=None):
                         actual_data[field_name] = value
             else:
                 actual_data[field_name] = value
-            field_paths.append(top_level_path)
+#            transform_paths.append(FieldPath(field_name))
     if not transform_paths:
         actual_data = document_data
-    return sorted(transform_paths), actual_data, field_paths
+    return sorted(transform_paths), actual_data, []#field_paths
                 
 
 def get_transform_pb(document_path, transform_paths):
@@ -1037,7 +1033,7 @@ def get_transform_pb(document_path, transform_paths):
         google.cloud.firestore_v1beta1.types.Write: A
         ``Write`` protobuf instance for a document transform.
     """
-    transform_paths = canonicalize_field_paths(transform_paths)
+#    transform_paths = canonicalize_field_paths(transform_paths)
     new = []
     for transform_path in transform_paths:
         try:
@@ -1076,14 +1072,16 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
         List[google.cloud.firestore_v1beta1.types.Write]: One
         or two ``Write`` protobuf instances for ``set()``.
     """
+    
     merge_paths = merge
     if not merge:
         merge_paths = []
 
-    field_paths = extract_field_paths(document_data)
-    field_paths = [FieldPath(*field_path) for field_path in field_paths]
-        
+    
     for merge_path in merge_paths:
+        field_paths = extract_field_paths(document_data)
+        field_paths = [FieldPath(*field_path) for field_path in field_paths]
+        
         inside = False
         for field_path in field_paths:
             if merge_path.parts[0] in field_path.parts:
@@ -1092,8 +1090,7 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
         if not inside:
             raise ValueError('Merge field is not in data.')
 
-    transform_paths, actual_data, field_paths = process_server_timestamp(document_data, True, field_paths)
-
+    transform_paths, actual_data, field_paths = process_server_timestamp(document_data, True, merge_paths)
 
     if not actual_data:
         if transform_paths:
@@ -1103,18 +1100,32 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
         else:
             raise ValueError('There is only ServerTimeStamp object.')
 
+    update_values, field_paths = FieldPathHelper.to_field_paths_set(actual_data)
+    fields = encode_dict(actual_data)
     if merge_paths:
-        merge_paths = set(merge) - set(transform_paths)
-
+        field_paths, values = parse_data_for_field_names(actual_data)
+        field_paths = [FieldPath(*field_path) for field_path in field_paths]
+        field_paths = set(field_paths) - set(transform_paths)
         fields = encode_dict(actual_data, merge_paths)
-
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
                 fields=fields,
             ),
         )
-        field_paths = list(merge_paths)
+        modify_paths = set(field_paths)
+        # new_path = None
+        # for modify_path in modify_paths:
+        #     ancestor = modify_path.common(merge_paths[0])
+        #     if new_path and ancestor.parts > new_path.parts:
+        #         new_path = ancestor
+        # if not new_path:
+        #     new_path = merge_paths[0]
+        # modify_paths = [new_path]
+        modify_paths = canonicalize_field_paths(modify_paths)
+        mask = common_pb2.DocumentMask(field_paths=sorted(modify_paths))
+        update_pb.update_mask.CopyFrom(mask)        
+        # field_paths = list(merge_paths)
         # if field_paths:
         #     new_path = None
         #     for field_path in field_paths:
@@ -1124,17 +1135,19 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
         #     if not new_path:
         #         new_path = field_paths[0]
         #     field_paths = [new_path]
-        merge_paths = list(set([field_path.to_api_repr() for field_path in merge_paths]))
-        mask = common_pb2.DocumentMask(field_paths=sorted(merge_paths))
-        update_pb.update_mask.CopyFrom(mask)
-
+    #     merge_paths = list(set([field_path.to_api_repr() for field_path in merge_paths]))
+    #     mask = common_pb2.DocumentMask(field_paths=sorted(merge_paths))
+    #     update_pb.update_mask.CopyFrom(mask)
     else:
+        fields = encode_dict(actual_data)
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
-                fields=encode_dict(actual_data),
+                fields=fields
             ),
         )
+        
+    # else:
     
     if exists is not None:
         update_pb.current_document.CopyFrom(

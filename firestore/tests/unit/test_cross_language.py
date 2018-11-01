@@ -111,17 +111,23 @@ class TestCrossLanguage(unittest.TestCase):
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
             if (
+                "set-10" in desc or
+                "set-15" in desc or
+                "set-16" in desc or
+                "set-3" in desc or
+                "set-7" in desc or
+                "set-9" in desc
 #                    "set-8" in desc or
 #                "set-16" in desc or
 #                "set-17" in desc or
 #                "set-18" in desc or
 #                "set-19" in desc or
-                "set-21" in desc or
-                "set-22" in desc or
+#                "set-21" in desc or
+#                "set-22" in desc or
 #                "set-23" in desc or
-                "set-24" in desc or
-                "set-25" in desc or
-                "set-26" in desc
+#                "set-24" in desc or
+#                "set-25" in desc or
+#                "set-26" in desc
             ):
                 import pdb
                 pdb.set_trace()
