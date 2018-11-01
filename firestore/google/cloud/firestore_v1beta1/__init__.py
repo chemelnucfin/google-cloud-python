@@ -47,7 +47,6 @@ __all__ = [
     'ExistsOption',
     'GeoPoint',
     'LastUpdateOption',
-    'MergeOption',
     'Query',
     'ReadAfterWriteError',
     'SERVER_TIMESTAMP',
