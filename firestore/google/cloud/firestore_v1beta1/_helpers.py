@@ -771,7 +771,7 @@ def _parse_field_name(api_repr):
     # https://github.com/googleapis/google-cloud-python/pull/5109/files;
     # probably needs some speeding up
 
-    if not '.' in api_repr:
+    if '.' not in api_repr:
         return api_repr, None
 
     if api_repr[0] != '`':  # first field name is simple
@@ -1085,6 +1085,7 @@ def pbs_for_set(document_path, document_data, merge=False, exists=None):
 
     return write_pbs
 
+
 def _pbs_for_set_with_merge(document_path, document_data, merge, exists):
     data_merge = []
     transform_merge = []
@@ -1131,16 +1132,16 @@ def _pbs_for_set_with_merge(document_path, document_data, merge, exists):
         # data_merge
         filter_document_data_by_field_paths(
             document_data,
-            field_paths = [fp.to_api_repr() for fp in merge]
+            field_paths=[fp.to_api_repr() for fp in merge]
             )
 
         # XXX dont pass apireprs to filter_d_d_b_p, pass FieldPaths
         actual_data = filter_document_data_by_field_paths(
             document_data,
-            field_paths = [fp.to_api_repr() for fp in data_merge],
+            field_paths=[fp.to_api_repr() for fp in data_merge],
         )
 
-    else: # non-iterable, non-False value means MergeAll
+    else:  # non-iterable, non-False value means MergeAll
         data_merge = field_paths
         transform_merge = transform_paths
         merge = sorted(data_merge + transform_merge)
@@ -1156,7 +1157,7 @@ def _pbs_for_set_with_merge(document_path, document_data, merge, exists):
         update_pb.update.CopyFrom(update)
 
         mask_paths = [
-            fp.to_api_repr() for fp in merge if not fp in transform_merge
+            fp.to_api_repr() for fp in merge if fp not in transform_merge
         ]
 
         if mask_paths or create_empty:
@@ -1172,7 +1173,7 @@ def _pbs_for_set_with_merge(document_path, document_data, merge, exists):
     new_transform_paths = []
     for merge_fp in merge:
         t_merge_fps = [
-            fp for fp in transform_paths if merge_fp.eq_or_parent(fp) ]
+            fp for fp in transform_paths if merge_fp.eq_or_parent(fp)]
         new_transform_paths.extend(t_merge_fps)
     transform_paths = new_transform_paths
 
