@@ -1052,13 +1052,16 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
     option_field_paths = None
 #    transform_paths, actual_data = remove_server_timestamp(document_data, merge_paths)
     if merge_paths == True:
-        merge_paths= extract_field_paths(document_data)
-        merge_paths = [FieldPath(*merge_path) for merge_path in merge_paths]
+        option_field_paths= extract_field_paths(document_data)
+        option_field_paths = [FieldPath(*merge_path) for merge_path in option_field_paths]
+    elif merge_paths:
+        option_field_paths = merge_paths
+
     if merge_paths:
         merge_paths_temp = merge_paths
         if merge_paths:
             import pdb
-            for field in merge_paths:
+            for field in option_field_paths:
                 field_paths = extract_field_paths(document_data)
                 field_paths = [FieldPath(*field_path) for field_path in field_paths]
                 inside = False
