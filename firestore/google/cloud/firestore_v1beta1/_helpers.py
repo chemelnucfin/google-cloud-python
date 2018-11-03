@@ -1072,7 +1072,7 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
                 if not inside:
                     raise ValueError('Merge field is not in data.')
 
-    transform_paths, actual_data = remove_server_timestamp(document_data, merge_paths)
+    transform_paths, actual_data = remove_server_timestamp(document_data, option_field_paths)
     if not actual_data:
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)
@@ -1130,12 +1130,17 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
             common_pb2.Precondition(exists=exists))
 
     write_pbs = [update_pb]
+    if merge_paths:
+        transform_merge_paths = merge_paths
+        if merge_paths == True:
+            transform_merge_paths= extract_field_paths(document_data)
+            transform_merge_paths = [FieldPath(*merge_path) for merge_path in transform_merge_paths]
     if transform_paths:
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
         if merge_paths:
             for transform_path in transform_paths:
-                if transform_path in merge_paths:
+                if transform_path in transform_merge_paths:
                     transform_pb = get_transform_pb(document_path, transform_paths)
                     write_pbs.append(transform_pb)
         else:
