@@ -193,6 +193,13 @@ class FieldPath(object):
             return self.to_api_repr() < other
         return NotImplemented
 
+    def __add__(self, other):
+        if isinstance(other, FieldPath):
+            return FieldPath(*(self.parts + other.parts))
+        elif isinstance(other, six.string_types):
+            return FieldPath(*(self.parts + other))
+        return NotImplemented
+
     def common(self, other):
         if self == other:
             return self
@@ -651,12 +658,13 @@ def extract_field_paths(update_data):
         if isinstance(value, dict):
             sub_field_paths = extract_field_paths(value)
             for sub_path in sub_field_paths:
-                paths = [field_name]                
+                paths = [field_name]
                 paths.extend(sub_path)
                 field_paths.append(paths)                
         else:
             paths = [field_name]
             field_paths.append(paths)
+#    field_paths = [FieldPath(*field_path) for field_path in field_paths]
     return field_paths
 
 def reference_value_to_document(reference_value, client):
@@ -965,7 +973,7 @@ def remove_server_timestamp(document_data, paths=None):
             sub_field_paths, sub_data = remove_server_timestamp(value)
 
             for sub_path in sub_field_paths:
-                field_path = [field_name]                
+                field_path = [field_name]
                 field_path.extend(sub_path.parts)
                 field_paths.extend([FieldPath(*field_path)])
             if sub_data:
@@ -1025,7 +1033,7 @@ def get_transform_pb(document_path, transform_paths):
     )
 
 
-def pbs_for_set(document_path, document_data, option):
+def pbs_for_set(document_path, document_data, merge_paths, exists):
     """Make ``Write`` protobufs for ``set()`` methods.
 
     Args:
@@ -1040,29 +1048,28 @@ def pbs_for_set(document_path, document_data, option):
         List[google.cloud.firestore_v1beta1.types.Write]: One
         or two ``Write`` protobuf instances for ``set()``.
     """
-    option_field_paths = None    
-    if option is not None:
-        try:
-            option_field_paths = option._field_paths
-            if option_field_paths:
-                import pdb
-#                pdb.set_trace()
-                for field in option_field_paths:
-                    field_paths = extract_field_paths(document_data)
-                    field_paths = [FieldPath(*field_path) for field_path in field_paths]
-                    inside = False
-                    for field_path in field_paths:
-                        import pdb
-#                        pdb.set_trace()
-                        if field.parts[0] in field_path.parts:
-                            inside = True
-                            break
-                    if not inside:
-                        raise ValueError('Merge field is not in data.')
-        except AttributeError:
-            pass
+    
+    option_field_paths = None
+#    transform_paths, actual_data = remove_server_timestamp(document_data, merge_paths)
+    if merge_paths == True:
+        merge_paths= extract_field_paths(document_data)
+        merge_paths = [FieldPath(*merge_path) for merge_path in merge_paths]
+    if merge_paths:
+        merge_paths_temp = merge_paths
+        if merge_paths:
+            import pdb
+            for field in merge_paths:
+                field_paths = extract_field_paths(document_data)
+                field_paths = [FieldPath(*field_path) for field_path in field_paths]
+                inside = False
+                for field_path in field_paths:
+                    if field.parts[0] in field_path.parts:
+                        inside = True
+                        break
+                if not inside:
+                    raise ValueError('Merge field is not in data.')
 
-    transform_paths, actual_data = remove_server_timestamp(document_data, option_field_paths)
+    transform_paths, actual_data = remove_server_timestamp(document_data, merge_paths)
     if not actual_data:
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)
@@ -1076,18 +1083,32 @@ def pbs_for_set(document_path, document_data, option):
 
     fields = encode_dict(actual_data)
 
-    if option is not None:
+    if merge_paths is not None:
         field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
-        fields = encode_dict(actual_data, option_field_paths)
+        fields = encode_dict(actual_data, merge_paths)
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
                 fields=fields,
             ),
         )
-        option.modify_write(update_pb, field_paths=field_paths)
+#        merge_paths = list(merge_paths)
+ #  if self._merge_paths:
+        new_path = None
+        for field_path in merge_paths:
+            ancestor = field_path.common(merge_paths[0])
+            if new_path and ancestor.parts > new_path.parts:
+                new_path = ancestor
+        if not new_path:
+            new_path = merge_paths[0]
+        merge_paths = [new_path]
+        merge_paths = list(set([field_path.to_api_repr() for field_path in merge_paths]))
+        mask = common_pb2.DocumentMask(field_paths=sorted(merge_paths))
+        update_pb.update_mask.CopyFrom(mask)
+        
+#        option.modify_write(update_pb, field_paths=merge_paths)
     else:
         fields = encode_dict(actual_data)
         update_pb = write_pb2.Write(
@@ -1097,25 +1118,22 @@ def pbs_for_set(document_path, document_data, option):
             ),
         )
         
+    if exists is not None:
+        update_pb.current_document.CopyFrom(
+            common_pb2.Precondition(exists=exists))
 
     write_pbs = [update_pb]
     if transform_paths:
         # NOTE: We **explicitly** don't set any write option on
         #       the ``transform_pb``.
-        try:
-            if option._field_paths:
-                for transform_path in transform_paths:
-                    if transform_path in option._field_paths:
-                        transform_pb = get_transform_pb(document_path, transform_paths)
-                        write_pbs.append(transform_pb)
-            else:
-                transform_pb = get_transform_pb(document_path, transform_paths)                
-                write_pbs.append(transform_pb)
-        except AttributeError:
-            transform_pb = get_transform_pb(document_path, transform_paths)
+        if merge_paths:
+            for transform_path in transform_paths:
+                if transform_path in merge_paths:
+                    transform_pb = get_transform_pb(document_path, transform_paths)
+                    write_pbs.append(transform_pb)
+        else:
+            transform_pb = get_transform_pb(document_path, transform_paths)                
             write_pbs.append(transform_pb)
-            
-            pass
 
     return write_pbs
 

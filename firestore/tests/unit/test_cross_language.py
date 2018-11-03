@@ -37,10 +37,11 @@ class TestCrossLanguage(unittest.TestCase):
                 test_proto.description,
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
-                self.run_write_test(test_proto, desc)
-            except (AssertionError, Exception) as error:
                 import pdb
 #                pdb.set_trace()
+                self.run_write_test(test_proto, desc)
+                
+            except (AssertionError, Exception) as error:
                 count += 1
                 print(desc, test_proto)
                 print(error.args[0])
@@ -89,11 +90,21 @@ class TestCrossLanguage(unittest.TestCase):
             tp = test_proto.set
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
+            import pdb
+            pdb.set_trace()
+            
             if tp.HasField("option"):
-                option = convert_set_option(tp.option)
+                merge, exists = convert_set_option(tp.option)
+                # if merge == True:
+                #     import pdb
+                #     pdb.set_trace()
+                #     merge = tp.field_paths
+                # else:
+                #     merge = 
+                
             else:
-                option = None
-            call = functools.partial(doc.set, data, option)
+                merge, exists = None, None
+            call = functools.partial(doc.set, data, merge, exists)
         elif kind == "update":
             tp = test_proto.update
             client, doc = self.setup(firestore_api, tp)
@@ -180,13 +191,13 @@ def convert_set_option(option):
     from google.cloud.firestore_v1beta1 import _helpers
     if isinstance(option, test_pb2.SetOption):
         if option.all:
-            return MergeOption(merge=True, field_paths=None)
+            return True, None#MergeOption(merge=True, field_paths=None)
         else:
             fields = []
             for field in option.fields:
 #                fields.append(_helpers.FieldPath(*field.field).to_api_repr())
                 fields.append(_helpers.FieldPath(*field.field)) 
-            return MergeOption(merge=True, field_paths=fields)
+            return fields, None#MergeOption(merge=True, field_paths=fields)
 
 
 def convert_precondition(precond):

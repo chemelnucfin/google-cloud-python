@@ -58,9 +58,10 @@ class WriteBatch(object):
                 creating a document.
         """
         option = self._client.write_option(exists=False)
-        self.set(reference, document_data, option=option)
+        
+        self.set(reference, document_data, None, False)
 
-    def set(self, reference, document_data, option=None):
+    def set(self, reference, document_data, merge, exists):
         """Add a "change" to replace a document.
 
         See
@@ -78,7 +79,7 @@ class WriteBatch(object):
                state of the document before applying changes.
         """
         write_pbs = _helpers.pbs_for_set(
-            reference._document_path, document_data, option)
+            reference._document_path, document_data, merge, exists)
         self._add_write_pbs(write_pbs)
 
     def update(self, reference, field_updates, option=None):
