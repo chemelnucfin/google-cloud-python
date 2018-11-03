@@ -1087,10 +1087,14 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
     fields = encode_dict(actual_data)
 
     if merge_paths is not None:
+        real_merge_paths = merge_paths        
+        if merge_paths == True:
+            real_merge_paths= extract_field_paths(document_data)
+            real_merge_paths = [FieldPath(*merge_path) for merge_path in real_merge_paths]
         field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
-        fields = encode_dict(actual_data, merge_paths)
+        fields = encode_dict(actual_data, real_merge_paths)
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
