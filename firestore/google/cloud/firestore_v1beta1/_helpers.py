@@ -1104,8 +1104,8 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
 #        merge_paths = list(merge_paths)
  #  if self._merge_paths:
         new_path = None
-        temp_paths = list(field_paths)
-        for field_path in real_merge_paths:
+        temp_paths = set(field_paths)
+        for field_path in temp_paths:
             ancestor = field_path.common(real_merge_paths[0])
             if new_path and ancestor.parts > new_path.parts:
                 new_path = ancestor
