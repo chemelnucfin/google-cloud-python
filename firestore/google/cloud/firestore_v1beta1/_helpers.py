@@ -1104,14 +1104,19 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
 #        merge_paths = list(merge_paths)
  #  if self._merge_paths:
         new_path = None
-        temp_paths = set(field_paths)
-        for field_path in temp_paths:
-            ancestor = field_path.common(real_merge_paths[0])
-            if new_path and ancestor.parts > new_path.parts:
-                new_path = ancestor
-        if not new_path:
-            new_path = real_merge_paths[0]
-        temp_paths = [new_path]
+        op_merge_paths = merge_paths
+        if merge_paths == True:
+            op_merge_paths = None
+        temp_paths = set(field_paths)            
+        if op_merge_paths:
+
+            for field_path in temp_paths:
+                ancestor = field_path.common(op_merge_paths[0])
+                if new_path and ancestor.parts > new_path.parts:
+                    new_path = ancestor
+            if not new_path:
+                new_path = op_merge_paths[0]
+            temp_paths = [new_path]
         temp_paths = list(set([field_path.to_api_repr() for field_path in temp_paths]))
         mask = common_pb2.DocumentMask(field_paths=sorted(temp_paths))
         update_pb.update_mask.CopyFrom(mask)
