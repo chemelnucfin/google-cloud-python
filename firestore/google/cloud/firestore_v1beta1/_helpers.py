@@ -1058,18 +1058,16 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
 
     if merge_paths:
         merge_paths_temp = merge_paths
-        if merge_paths:
-            import pdb
-            for field in option_field_paths:
-                field_paths = extract_field_paths(document_data)
-                field_paths = [FieldPath(*field_path) for field_path in field_paths]
-                inside = False
-                for field_path in field_paths:
-                    if field.parts[0] in field_path.parts:
-                        inside = True
-                        break
-                if not inside:
-                    raise ValueError('Merge field is not in data.')
+        for field in option_field_paths:
+            field_paths = extract_field_paths(document_data)
+            field_paths = [FieldPath(*field_path) for field_path in field_paths]
+            inside = False
+            for field_path in field_paths:
+                if field.parts[0] in field_path.parts:
+                    inside = True
+                    break
+            if not inside:
+                raise ValueError('Merge field is not in data.')
 
     transform_paths, actual_data = remove_server_timestamp(document_data, option_field_paths)
     if not actual_data:
@@ -1090,7 +1088,7 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
         if merge_paths == True:
             op_merge_paths = None
         
-         field_paths, values = parse_data_for_field_names(actual_data)
+        field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
         fields = encode_dict(actual_data, op_merge_paths)
@@ -1101,22 +1099,17 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
             ),
         )
         new_path = None
-        op_merge_paths = merge_paths
-        if merge_paths == True:
-            op_merge_paths = None
-        temp_paths = set(field_paths)            
         if op_merge_paths:
-            for field_path in temp_paths:
+            for field_path in field_paths:
                 ancestor = field_path.common(op_merge_paths[0])
                 if new_path and ancestor.parts > new_path.parts:
                     new_path = ancestor
             if not new_path:
                 new_path = op_merge_paths[0]
-            temp_paths = [new_path]
-        temp_paths = list(set([field_path.to_api_repr() for field_path in temp_paths]))
-        mask = common_pb2.DocumentMask(field_paths=sorted(temp_paths))
+            field_paths = [new_path]
+        field_paths = list(set([field_path.to_api_repr() for field_path in field_paths]))
+        mask = common_pb2.DocumentMask(field_paths=sorted(field_paths))
         update_pb.update_mask.CopyFrom(mask)
-        
     else:
         fields = encode_dict(actual_data)
         update_pb = write_pb2.Write(
