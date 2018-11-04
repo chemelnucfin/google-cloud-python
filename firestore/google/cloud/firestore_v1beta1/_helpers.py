@@ -1094,7 +1094,8 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
         field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
-        fields = encode_dict(actual_data, real_merge_paths)
+        print("SSSSSSSSSSSSSSSSSSSSSSSSSSSSS", actual_data, option_field_paths)
+        fields = encode_dict(actual_data, option_field_paths)
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
@@ -1109,7 +1110,6 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
             op_merge_paths = None
         temp_paths = set(field_paths)            
         if op_merge_paths:
-
             for field_path in temp_paths:
                 ancestor = field_path.common(op_merge_paths[0])
                 if new_path and ancestor.parts > new_path.parts:

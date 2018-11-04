@@ -90,8 +90,10 @@ class TestCrossLanguage(unittest.TestCase):
             tp = test_proto.set
             client, doc = self.setup(firestore_api, tp)
             data = convert_data(json.loads(tp.json_data))
-            import pdb
-            pdb.set_trace()
+            if "16" in desc:
+                import pdb
+                pdb.set_trace()
+
             
             if tp.HasField("option"):
                 merge, exists = convert_set_option(tp.option)
