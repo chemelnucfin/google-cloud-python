@@ -1050,7 +1050,6 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
     """
     
     option_field_paths = None
-#    transform_paths, actual_data = remove_server_timestamp(document_data, merge_paths)
     if merge_paths == True:
         option_field_paths= extract_field_paths(document_data)
         option_field_paths = [FieldPath(*merge_path) for merge_path in option_field_paths]
@@ -1087,23 +1086,20 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
     fields = encode_dict(actual_data)
 
     if merge_paths is not None:
-        real_merge_paths = merge_paths        
+        op_merge_paths = merge_paths
         if merge_paths == True:
-            real_merge_paths= extract_field_paths(document_data)
-            real_merge_paths = [FieldPath(*merge_path) for merge_path in real_merge_paths]
-        field_paths, values = parse_data_for_field_names(actual_data)
+            op_merge_paths = None
+        
+         field_paths, values = parse_data_for_field_names(actual_data)
         field_paths = [FieldPath(*field_path) for field_path in field_paths]
         field_paths = set(field_paths) - set(transform_paths)
-        print("SSSSSSSSSSSSSSSSSSSSSSSSSSSSS", actual_data, option_field_paths)
-        fields = encode_dict(actual_data, option_field_paths)
+        fields = encode_dict(actual_data, op_merge_paths)
         update_pb = write_pb2.Write(
             update=document_pb2.Document(
                 name=document_path,
                 fields=fields,
             ),
         )
-#        merge_paths = list(merge_paths)
- #  if self._merge_paths:
         new_path = None
         op_merge_paths = merge_paths
         if merge_paths == True:
@@ -1121,7 +1117,6 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
         mask = common_pb2.DocumentMask(field_paths=sorted(temp_paths))
         update_pb.update_mask.CopyFrom(mask)
         
-#        option.modify_write(update_pb, field_paths=merge_paths)
     else:
         fields = encode_dict(actual_data)
         update_pb = write_pb2.Write(
