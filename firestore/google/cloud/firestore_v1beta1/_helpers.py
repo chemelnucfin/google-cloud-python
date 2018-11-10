@@ -1102,10 +1102,20 @@ def pbs_for_set(document_path, document_data, merge_paths, exists):
     if not actual_data:
         if transform_paths:
             transform_pb = get_transform_pb(document_path, transform_paths)
+            if exists is not None:
+                transform_pb.current_document.CopyFrom(
+                    common_pb2.Precondition(exists=exists))
             write_pbs = [transform_pb]
             return write_pbs
         else:
-            raise ValueError('There is only ServerTimeStamp object.')
+            if not document_data:
+                update_pb = write_pb2.Write(
+                    update=document_pb2.Document(
+                        name=document_path,
+                    ),
+                )
+            else:
+                raise ValueError('There is only ServerTimeStamp object.')
     
     update_values, field_paths = FieldPathHelper.to_field_paths_set(actual_data)
     field_paths = canonicalize_field_paths(field_paths)

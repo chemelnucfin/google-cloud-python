@@ -38,12 +38,15 @@ class TestCrossLanguage(unittest.TestCase):
                 os.path.splitext(os.path.basename(test_filename))[0])
             try:
                 import pdb
+                if "create-st-alone" in desc:                
+                    pdb.set_trace()
+
                 kind = test_proto.WhichOneof("test")
                 
                 if "arrayunion" in desc or "arrayremove" in desc or kind == "query" or kind == "listen" or "all-transforms" in desc or "set-del" in desc:
                     continue
                     
-#                pdb.set_trace()
+
 
                 self.run_write_test(test_proto, desc)
                 
